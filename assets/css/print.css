@@ -1,0 +1,103 @@
+/* Print Styles for E-GABAY ASC Reports */
+
+@media print {
+    /* Hide elements that shouldn't be printed */
+    .navbar, .sidebar, .btn-print, .btn-export, .no-print, 
+    .btn-close, .footer, .card-footer, .filter-form, 
+    .dropdown-menu, .dropdown-toggle, .btn-back {
+        display: none !important;
+    }
+    
+    /* Ensure content is visible */
+    .content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        left: 0 !important;
+    }
+    
+    /* Adjust page layout */
+    body {
+        padding: 0 !important;
+        margin: 0 !important;
+        background-color: white !important;
+    }
+    
+    .container-fluid {
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* Ensure charts and tables are visible */
+    .card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #ddd !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    
+    .table td, .table th {
+        border: 1px solid #ddd !important;
+        padding: 8px !important;
+    }
+    
+    /* Make text black for better printing */
+    body, h1, h2, h3, h4, h5, h6, p, span, div, table, th, td {
+        color: black !important;
+    }
+    
+    /* Add page title */
+    .print-header {
+        display: block !important;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .print-header h1 {
+        font-size: 24px !important;
+        margin-bottom: 5px !important;
+    }
+    
+    .print-header p {
+        font-size: 14px !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* Force background colors for charts */
+    canvas {
+        max-width: 100% !important;
+    }
+    
+    /* Ensure page breaks don't happen in the middle of elements */
+    tr, td, th, p, h1, h2, h3, h4, h5, h6 {
+        page-break-inside: avoid;
+    }
+    
+    /* Add page numbers */
+    @page {
+        margin: 1cm;
+    }
+    
+    /* Expand all rows in tables */
+    .collapse {
+        display: block !important;
+        height: auto !important;
+    }
+}
+
+/* Hide print-only elements when not printing */
+.print-only {
+    display: none;
+}
+
+@media print {
+    .print-only {
+        display: block !important;
+    }
+} 
