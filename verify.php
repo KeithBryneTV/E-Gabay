@@ -7,7 +7,7 @@ require_once $base_path . '/includes/utility.php';
 $token = sanitizeInput($_GET['token'] ?? '');
 if (!$token) {
     setMessage('Invalid verification link.','danger');
-    redirect('login.php');
+    redirect('login');
     exit;
 }
 
@@ -21,4 +21,4 @@ if ($row) {
 } else {
     setMessage('Verification link is invalid or has already been used.','danger');
 }
-redirect('login.php'); 
+redirect('login'); 

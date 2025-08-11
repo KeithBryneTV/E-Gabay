@@ -63,7 +63,10 @@ header("Pragma: no-cache");
 header("Expires: 0");
 header("Clear-Site-Data: \"cache\", \"cookies\", \"storage\"");
 
-// Redirect to login page
-header("Location: " . SITE_URL . "/login.php");
+// Redirect to login page - use absolute URL to avoid .htaccess conflicts
+$login_url = rtrim(SITE_URL, '/') . "/login";
+// Add cache-busting parameter to ensure fresh login page
+$login_url .= "?logout=1&t=" . time();
+header("Location: " . $login_url);
 exit();
 ?> 

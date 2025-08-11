@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../includes/path_fix.php';
 
 // Required includes with absolute paths
 require_once $base_path . '/config/config.php';
+require_once $base_path . '/includes/auth.php';
+require_once $base_path . '/includes/utility.php';
 
 // Include required classes
 require_once $base_path . '/classes/Database.php';
@@ -55,24 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
                 
-            case 'schedule_consultation':
-                $consultation_id = (int)$_POST['consultation_id'];
-                $scheduled_date = $_POST['scheduled_date'];
-                $scheduled_time = $_POST['scheduled_time'];
-                $notes = sanitizeInput($_POST['notes'] ?? '');
-                
-                // Update consultation with scheduled date and time
-                $query = "UPDATE consultation_requests 
-                          SET preferred_date = ?, preferred_time = ?, counselor_notes = ? 
-                          WHERE id = ? AND counselor_id = ?";
-                $stmt = $db->prepare($query);
-                
-                if ($stmt->execute([$scheduled_date, $scheduled_time, $notes, $consultation_id, $user_id])) {
-                    setMessage('Consultation scheduled successfully.', 'success');
-                } else {
-                    setMessage('Failed to schedule consultation.', 'danger');
-                }
-                break;
+
         }
     }
 }
@@ -208,9 +193,6 @@ include_once $base_path . '/includes/header.php';
                                         </a>
                                         
                                         <?php if ($consultation['status'] === 'pending'): ?>
-                                            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#scheduleModal<?php echo $consultation['id']; ?>">
-                                                <i class="fas fa-calendar-alt"></i> Schedule
-                                            </button>
                                             
                                             <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="post" class="d-inline">
                                                 <input type="hidden" name="action" value="accept_consultation">
@@ -240,42 +222,7 @@ include_once $base_path . '/includes/header.php';
                                         <?php endif; ?>
                                     </div>
                                     
-                                    <!-- Schedule Modal -->
-                                    <div class="modal fade" id="scheduleModal<?php echo $consultation['id']; ?>" tabindex="-1" aria-labelledby="scheduleModalLabel<?php echo $consultation['id']; ?>" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="scheduleModalLabel<?php echo $consultation['id']; ?>">Schedule Consultation</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="post">
-                                                    <div class="modal-body">
-                                                        <input type="hidden" name="action" value="schedule_consultation">
-                                                        <input type="hidden" name="consultation_id" value="<?php echo $consultation['id']; ?>">
-                                                        
-                                                        <div class="mb-3">
-                                                            <label for="scheduled_date<?php echo $consultation['id']; ?>" class="form-label">Date</label>
-                                                            <input type="date" class="form-control" id="scheduled_date<?php echo $consultation['id']; ?>" name="scheduled_date" value="<?php echo $consultation['preferred_date']; ?>" required>
-                                                        </div>
-                                                        
-                                                        <div class="mb-3">
-                                                            <label for="scheduled_time<?php echo $consultation['id']; ?>" class="form-label">Time</label>
-                                                            <input type="time" class="form-control" id="scheduled_time<?php echo $consultation['id']; ?>" name="scheduled_time" value="<?php echo $consultation['preferred_time']; ?>" required>
-                                                        </div>
-                                                        
-                                                        <div class="mb-3">
-                                                            <label for="notes<?php echo $consultation['id']; ?>" class="form-label">Notes</label>
-                                                            <textarea class="form-control" id="notes<?php echo $consultation['id']; ?>" name="notes" rows="3"><?php echo $consultation['counselor_notes'] ?? ''; ?></textarea>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                        <button type="submit" class="btn btn-primary">Save Schedule</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    
                                 </td>
                             </tr>
                         <?php endforeach; ?>

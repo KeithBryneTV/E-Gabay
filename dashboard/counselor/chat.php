@@ -31,7 +31,7 @@ error_log("Counselor Chat Access - Session data: " . json_encode([
 
 if (!$user_id) {
     setMessage('User session not found. Please login again.', 'danger');
-    redirect(SITE_URL . '/login.php');
+    redirect(rtrim(SITE_URL, '/') . '/login');
     exit;
 }
 
@@ -124,7 +124,7 @@ elseif (isset($_GET['consultation_id']) && !empty($_GET['consultation_id'])) {
     // Check if consultation is active
     if ($consultation['status'] !== 'live') {
         setMessage('You can only chat for active consultations.', 'warning');
-        redirect(SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
+        header('Location: ' . SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
         exit;
     }
     
@@ -162,7 +162,7 @@ elseif (isset($_GET['consultation_id']) && !empty($_GET['consultation_id'])) {
             exit;
         } else {
             setMessage('Failed to create chat session.', 'danger');
-            redirect(SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
+            header('Location: ' . SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
             exit;
         }
     }
@@ -665,8 +665,13 @@ function displayMessages(messages) {
             messageDiv.className = 'system-message';
             details.textContent = messageContent;
         } else {
-            // Use created_at instead of timestamp for the date
-            const messageTime = msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : '';
+            // Use created_at instead of timestamp for the date (Philippine timezone)
+            const messageTime = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-PH', { 
+                timeZone: 'Asia/Manila',
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            }) : '';
             
             // Check if this is a file message
             if (msg.file_path && msg.file_name) {

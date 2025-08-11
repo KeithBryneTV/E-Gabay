@@ -97,7 +97,7 @@ foreach ($consultations_by_date as $item) {
     $counts[] = $item['count'];
 }
 
-// Get top issues/categories
+// Get top problems/categories
 $query = "SELECT IFNULL(issue_category, 'Uncategorized') as issue_category, COUNT(*) as count
           FROM consultation_requests
           WHERE created_at BETWEEN :start_date AND :end_date
@@ -109,7 +109,7 @@ $stmt = $db->prepare($query);
 $stmt->bindParam(':start_date', $start_date);
 $stmt->bindParam(':end_date', $end_date_adjusted);
 $stmt->execute();
-$top_issues = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$top_problems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get counselor performance
 $query = "SELECT 
@@ -364,10 +364,10 @@ include_once $base_path . '/includes/header.php';
         <div class="card mb-4">
             <div class="card-header">
                 <i class="fas fa-list-ol me-1"></i>
-                Top Issues/Categories
+                Top Problems/Categories
             </div>
             <div class="card-body">
-                <?php if (empty($top_issues)): ?>
+                <?php if (empty($top_problems)): ?>
                     <p class="text-center">No data available for the selected period.</p>
                 <?php else: ?>
                     <div class="table-responsive">
@@ -375,7 +375,7 @@ include_once $base_path . '/includes/header.php';
                             <thead class="table-dark">
                                 <tr>
                                     <th style="width: 8%;">Rank</th>
-                                    <th style="width: 35%;">Issue Category</th>
+                                    <th style="width: 35%;">Problem Category</th>
                                     <th style="width: 15%;">Count</th>
                                     <th style="width: 15%;">Percentage</th>
                                     <th style="width: 12%;">Completed</th>
@@ -384,9 +384,9 @@ include_once $base_path . '/includes/header.php';
                             </thead>
                             <tbody>
                                 <?php 
-                                $total_issues = array_sum(array_column($top_issues, 'count'));
+                                $total_problems = array_sum(array_column($top_problems, 'count'));
                                 $rank = 1;
-                                foreach ($top_issues as $issue): 
+                                foreach ($top_problems as $problem): 
                                     // Get additional stats for each category
                                     $category_stats_query = "SELECT 
                                         COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count,
@@ -394,7 +394,7 @@ include_once $base_path . '/includes/header.php';
                                         FROM consultation_requests 
                                         WHERE issue_category = ? AND created_at BETWEEN ? AND ?";
                                     $stats_stmt = $db->prepare($category_stats_query);
-                                    $stats_stmt->execute([$issue['issue_category'], $start_date, $end_date_adjusted]);
+                                    $stats_stmt->execute([$problem['issue_category'], $start_date, $end_date_adjusted]);
                                     $category_stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
                                 ?>
                                     <tr>
@@ -408,14 +408,14 @@ include_once $base_path . '/includes/header.php';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <strong><?php echo !empty($issue['issue_category']) ? $issue['issue_category'] : 'Uncategorized'; ?></strong>
+                                            <strong><?php echo !empty($problem['issue_category']) ? $problem['issue_category'] : 'Uncategorized'; ?></strong>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-primary"><strong><?php echo $issue['count']; ?></strong></span>
+                                            <span class="badge bg-primary"><strong><?php echo $problem['count']; ?></strong></span>
                                         </td>
                                         <td class="text-center">
                                             <?php 
-                                            $percentage = $total_issues > 0 ? round(($issue['count'] / $total_issues) * 100, 1) : 0;
+                                            $percentage = $total_problems > 0 ? round(($problem['count'] / $total_problems) * 100, 1) : 0;
                                             $color = $percentage >= 30 ? 'danger' : ($percentage >= 20 ? 'warning' : 'info');
                                             ?>
                                             <span class="badge bg-<?php echo $color; ?>"><?php echo $percentage; ?>%</span>

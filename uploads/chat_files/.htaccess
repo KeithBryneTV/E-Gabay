@@ -1,6 +1,0 @@
-# Prevent direct access to uploaded files
-Options -Indexes
-deny from all
-<Files ~ "\.(jpg|jpeg|png|gif|pdf|doc|docx|txt)$">
-    allow from all
-</Files>

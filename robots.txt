@@ -1,0 +1,36 @@
+User-agent: *
+
+# Allow access to main pages
+Allow: /login
+Allow: /register
+Allow: /profile
+Allow: /
+
+# Disallow .php versions to prevent duplicate indexing
+Disallow: /login.php
+Disallow: /register.php
+Disallow: /profile.php
+Disallow: /logout.php
+Disallow: /verify.php
+Disallow: /forgot_password.php
+
+# Block sensitive directories
+Disallow: /config/
+Disallow: /includes/
+Disallow: /classes/
+Disallow: /backups/
+Disallow: /vendor/
+
+# Block API endpoints from indexing
+Disallow: /api/
+
+# Allow dashboard pages (they handle their own routing)
+Allow: /dashboard/
+
+# Block uploads except profile pictures
+Disallow: /uploads/chat_files/
+Disallow: /uploads/email_logos/
+Allow: /uploads/profile_pictures/
+
+# Sitemap location
+Sitemap: https://egabayasc.online/sitemap.xml 

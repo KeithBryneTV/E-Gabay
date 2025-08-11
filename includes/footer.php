@@ -46,6 +46,27 @@
                                     <small class="text-muted">Full-Stack Developer</small>
                                 </div>
                             </div>
+                            <div class="mt-3">
+                                <h6 class="fw-bold text-primary mb-2">
+                                    <i class="fas fa-envelope me-2"></i>Contact Developer
+                                </h6>
+                                <div class="mb-2">
+                                    <i class="fab fa-facebook me-2 text-primary"></i>
+                                    <a href="https://www.facebook.com/Keithtordaofficial1/" target="_blank" class="text-decoration-none">
+                                        Keith Torda - Facebook
+                                    </a>
+                                </div>
+                                <div class="mb-2">
+                                    <i class="fas fa-envelope me-2 text-primary"></i>
+                                    <a href="mailto:keithorario@gmail.com" class="text-decoration-none">
+                                        keithorario@gmail.com
+                                    </a>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    For system support, bug reports, or feature requests
+                                </small>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <h6 class="fw-bold text-primary mb-3">
@@ -136,6 +157,18 @@
     <script src="<?php echo SITE_URL; ?>/assets/js/notifications.js"></script>
     <?php endif; ?>
     
+    <!-- EGABAY Enhanced AI Helper - Real AI Integration -->
+    <script src="<?php echo SITE_URL; ?>/assets/js/ai-helper.js"></script>
+    <script>
+    // Add user role meta tag for AI Helper
+    if (!document.querySelector('meta[name="user-role"]')) {
+        const metaRole = document.createElement('meta');
+        metaRole.name = 'user-role';
+        metaRole.content = '<?php echo isLoggedIn() ? (isAdmin() ? 'admin' : (isCounselor() ? 'counselor' : (isStudent() ? 'student' : 'user'))) : 'guest'; ?>';
+        document.head.appendChild(metaRole);
+    }
+    </script>
+    
     <!-- Print JS -->
     <script src="<?php echo SITE_URL; ?>/assets/js/print.js"></script>
     
@@ -159,7 +192,7 @@
                 if (!data.valid) {
                     // Session invalid - redirect to login
                     alert("Your session has expired. Please log in again.");
-                    window.location.replace("<?php echo SITE_URL; ?>/login.php");
+                    window.location.replace("<?php echo rtrim(SITE_URL, '/'); ?>/login");
                     return false;
                 } else {
                     // Session valid - allow navigation but refresh to ensure fresh data

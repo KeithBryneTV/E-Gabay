@@ -36,23 +36,23 @@ usort($notifications, function($a, $b) {
                 <?php foreach (array_slice($notifications, 0, 5) as $notification): 
                     $type = $notification['notification_type'] ?? $notification['type'] ?? 'info';
                     $is_read = isset($notification['is_read']) && $notification['is_read'] == 0 ? false : true;
-                    $link = isset($notification['link']) && $notification['link'] ? $notification['link'] : SITE_URL . '/dashboard/view_notification.php?id=' . $notification['id'];
+                    $link = isset($notification['link']) && $notification['link'] ? $notification['link'] : rtrim(SITE_URL, '/') . '/dashboard/view_notification?id=' . $notification['id'];
                     
                     // Set specific links for message notifications
                     if (isset($notification['category']) && $notification['category'] === 'message') {
                         // Extract consultation ID from message for chat redirect
                         if (preg_match('/Consultation #(\d+)/', $notification['message'], $matches)) {
                             $consultation_id = $matches[1];
-                            $link = SITE_URL . '/dashboard/' . $role . '/view_consultation.php?id=' . $consultation_id;
+                            $link = rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/view_consultation.php?id=' . $consultation_id;
                         } elseif (preg_match('/consultation #(\d+)/i', $notification['message'], $matches)) {
                             $consultation_id = $matches[1];
-                            $link = SITE_URL . '/dashboard/' . $role . '/view_consultation.php?id=' . $consultation_id;
+                            $link = rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/view_consultation.php?id=' . $consultation_id;
                         }
                     } elseif (strpos(strtolower($notification['message']), 'message') !== false && strpos(strtolower($notification['message']), 'consultation') !== false) {
                         // Try to extract consultation ID from any message containing both "message" and "consultation"
                         if (preg_match('/#(\d+)/', $notification['message'], $matches)) {
                             $consultation_id = $matches[1];
-                            $link = SITE_URL . '/dashboard/' . $role . '/view_consultation.php?id=' . $consultation_id;
+                            $link = rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/view_consultation.php?id=' . $consultation_id;
                          }
                      } elseif (strpos(strtolower($notification['message']), 'new message from') !== false) {
                         // Handle "New message from" notifications - redirect to chat
@@ -94,10 +94,12 @@ usort($notifications, function($a, $b) {
                     
                     // Ensure link is always set for proper clickability  
                     if (empty($link)) {
-                        $link = SITE_URL . '/dashboard/view_notification.php?id=' . $notification['id'];
+                        $link = rtrim(SITE_URL, '/') . '/dashboard/view_notification?id=' . $notification['id'];
                     }
                 ?>
-                <a class="list-group-item list-group-item-action <?php echo !$is_read ? 'notification-unread' : ''; ?>" href="<?php echo $link; ?>">
+                <div class="list-group-item list-group-item-action <?php echo !$is_read ? 'notification-unread' : ''; ?>" data-notification-id="<?php echo $notification['id']; ?>">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <a href="<?php echo $link; ?>" class="flex-grow-1 text-decoration-none" onclick="markNotificationRead(event, '<?php echo $notification['id']; ?>')">
                     <div class="d-flex align-items-center">
                         <div class="notification-icon <?php echo $type; ?> me-3">
                             <i class="fas fa-<?php echo $icon; ?>"></i>
@@ -107,13 +109,20 @@ usort($notifications, function($a, $b) {
                             <div class="notification-time"><?php echo timeAgo($notification['created_at']); ?></div>
                         </div>
                     </div>
-                </a>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                                onclick="deleteNotification(event, '<?php echo $notification['id']; ?>')" 
+                                title="Delete notification">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
                 <?php endforeach; ?>
             </div>
             
             <?php if (count($notifications) > 5): ?>
                 <div class="text-center mt-3">
-                    <a href="<?php echo SITE_URL; ?>/notifications.php" class="btn btn-sm btn-outline-primary">
+                    <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/<?php echo $role; ?>/notifications.php" class="btn btn-sm btn-outline-primary">
                         View All (<?php echo count($notifications); ?>)
                     </a>
                 </div>

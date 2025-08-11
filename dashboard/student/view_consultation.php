@@ -246,14 +246,27 @@ include_once $base_path . '/includes/header.php';
                                 <h6 class="fw-bold text-primary mb-2"><i class="fas fa-calendar me-2"></i>Schedule</h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <p class="mb-1 text-muted small">Preferred Date</p>
+                                        <p class="mb-1 text-muted small">Your Preferred Date</p>
                                         <p class="fw-bold"><?php echo formatDate($consultation_data['preferred_date']); ?></p>
                                     </div>
                                     <div class="col-md-6">
-                                        <p class="mb-1 text-muted small">Preferred Time</p>
+                                        <p class="mb-1 text-muted small">Your Preferred Time</p>
                                         <p class="fw-bold"><?php echo formatTime($consultation_data['preferred_time']); ?></p>
                                     </div>
                                 </div>
+                                
+                                <?php if (!empty($consultation_data['scheduled_date']) && !empty($consultation_data['scheduled_time'])): ?>
+                                <div class="row mt-2 pt-2 border-top">
+                                    <div class="col-md-6">
+                                        <p class="mb-1 text-muted small">Confirmed Date</p>
+                                        <p class="fw-bold text-success"><?php echo formatDate($consultation_data['scheduled_date']); ?></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1 text-muted small">Confirmed Time</p>
+                                        <p class="fw-bold text-success"><?php echo formatTime($consultation_data['scheduled_time']); ?></p>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
                                 <div class="row mt-2">
                                     <div class="col-12">
                                         <p class="mb-1 text-muted small">Communication Method</p>

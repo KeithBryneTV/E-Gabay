@@ -31,7 +31,7 @@ error_log("Student Chat Access - Session data: " . json_encode([
 
 if (!$user_id) {
     setMessage('User session not found. Please login again.', 'danger');
-    redirect(SITE_URL . '/login.php');
+    redirect(rtrim(SITE_URL, '/') . '/login');
     exit;
 }
 
@@ -518,7 +518,7 @@ include_once $base_path . '/includes/header.php';
     const CHAT_MAX_MESSAGES = <?php echo defined('CHAT_MAX_MESSAGES') ? CHAT_MAX_MESSAGES : 100; ?>;
     const CHAT_ENABLE_TYPING_INDICATOR = <?php echo defined('CHAT_ENABLE_TYPING_INDICATOR') && CHAT_ENABLE_TYPING_INDICATOR ? 'true' : 'false'; ?>;
     
-    // Set global variables for chat.js
+    // Set global variables for chat system
     window.currentUserId = <?php echo $user_id; ?>;
     window.siteUrl = '<?php echo SITE_URL; ?>';
     window.isAnonymousChat = <?php echo isset($chat_session['is_anonymous']) && $chat_session['is_anonymous'] ? 'true' : 'false'; ?>;
@@ -635,8 +635,13 @@ function displayMessages(messages) {
             messageDiv.className = 'system-message';
             details.textContent = messageContent;
         } else {
-            // Use created_at instead of timestamp for the date
-            const messageTime = msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : '';
+            // Use created_at instead of timestamp for the date (Philippine timezone)
+            const messageTime = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-PH', { 
+                timeZone: 'Asia/Manila',
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            }) : '';
             
             // Check if this is a file message
             if (msg.file_path && msg.file_name) {

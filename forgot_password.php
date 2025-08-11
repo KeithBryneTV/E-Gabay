@@ -70,19 +70,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($user) {
-            // Generate new random password
-            $newPassPlain = bin2hex(random_bytes(4)); // 8-char random
-            $hashed = password_hash($newPassPlain, PASSWORD_DEFAULT);
-            $db->prepare('UPDATE users SET password = ?, updated_at = NOW() WHERE user_id = ?')->execute([$hashed, $user['user_id']]);
-            // Send e-mail
-            $body = '<p>Hello '.$user['first_name'].',</p>';
-            $body .= '<p>You requested a password reset. Here is your new temporary password:</p>';
-            $body .= '<p style="font-size:18px;font-weight:bold;">'.$newPassPlain.'</p>';
-            $body .= '<p>Please log in and change it immediately.</p>';
-            sendEmail($email, 'Your new '.SITE_NAME.' password', buildEmailTemplate($body));
+            // Generate secure reset token
+            $resetToken = bin2hex(random_bytes(32)); // 64-char secure token
+            
+            // Store reset token in database
+            try {
+                // Delete any existing tokens for this user
+                $db->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([$user['user_id']]);
+                
+                // Insert new reset token
+                $db->prepare('INSERT INTO password_resets (user_id, email, token) VALUES (?, ?, ?)')->execute([
+                    $user['user_id'], 
+                    $email, 
+                    $resetToken
+                ]);
+                
+                // Send password reset email using template
+                sendPasswordResetEmail($email, $user['first_name'], $resetToken);
+                
+            } catch (Exception $e) {
+                error_log("Password reset error: " . $e->getMessage());
+                // Still show generic message for security
+            }
         }
-        // Always show generic message
-        $message = 'If the e-mail exists in our system, a new password has been sent.';
+        // Always show generic message for security
+        $message = 'If the e-mail exists in our system, a password reset link has been sent.';
     } else {
         $message = 'Please enter your e-mail address.';
     }
@@ -257,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="submit" class="btn btn-primary w-100">Reset Password</button>
             </form>
             <div class="text-center mt-3">
-                <a href="login.php">Back to Login</a>
+                                    <a href="login">Back to Login</a>
             </div>
         </div>
     </div>

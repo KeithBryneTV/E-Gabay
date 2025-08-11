@@ -9,49 +9,70 @@ class Consultation {
     
     // Create a new consultation request
     public function createRequest($student_id, $issue_description, $preferred_date, $preferred_time, $communication_method, $is_anonymous = 0, $issue_category = null, $counselor_id = null) {
-        $query = "INSERT INTO " . $this->table . " 
-                 (student_id, issue_description, issue_category, preferred_date, preferred_time, communication_method, is_anonymous, counselor_id) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        $stmt = $this->conn->prepare($query);
-        
-        $stmt->bindParam(1, $student_id);
-        $stmt->bindParam(2, $issue_description);
-        $stmt->bindParam(3, $issue_category);
-        $stmt->bindParam(4, $preferred_date);
-        $stmt->bindParam(5, $preferred_time);
-        $stmt->bindParam(6, $communication_method);
-        $stmt->bindParam(7, $is_anonymous);
-        $stmt->bindParam(8, $counselor_id);
-        
-        if($stmt->execute()) {
-            $newId = $this->conn->lastInsertId();
+        try {
+            // Sanitize and validate input
+            $issue_description = htmlspecialchars(trim($issue_description), ENT_QUOTES, 'UTF-8');
+            $issue_category = htmlspecialchars(trim($issue_category), ENT_QUOTES, 'UTF-8');
+            $preferred_date = trim($preferred_date);
+            $preferred_time = trim($preferred_time);
+            $communication_method = trim($communication_method);
+            
+            $query = "INSERT INTO " . $this->table . " 
+                     (student_id, issue_description, issue_category, preferred_date, preferred_time, communication_method, is_anonymous, counselor_id) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt = $this->conn->prepare($query);
+            
+            $result = $stmt->execute([
+                $student_id,
+                $issue_description,
+                $issue_category,
+                $preferred_date,
+                $preferred_time,
+                $communication_method,
+                $is_anonymous,
+                $counselor_id
+            ]);
+            
+            if($result && $stmt->rowCount() > 0) {
+                $newId = $this->conn->lastInsertId();
 
-            // Send system notifications
-            if (!function_exists('addSystemNotification')) {
-                require_once __DIR__ . '/../includes/utility.php';
+                // Send system notifications with error handling
+                try {
+                    if (!function_exists('addSystemNotification')) {
+                        require_once __DIR__ . '/../includes/utility.php';
+                    }
+
+                    // Notify admins
+                    $adminLink = SITE_URL . '/dashboard/admin/view_consultation.php?id=' . $newId;
+                    addRoleBroadcastNotification('A new consultation request has been submitted.', 'admin', 'info', 'consultation', $adminLink);
+
+                    // Notify counselor(s)
+                    if ($counselor_id) {
+                        // Specific counselor assigned on creation
+                        $counselorLink = SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $newId;
+                        addSystemNotification($counselor_id, 'A new consultation has been assigned to you.', 'info', 'consultation', $counselorLink);
+                    } else {
+                        // Broadcast to all counselors if none assigned yet
+                        addRoleBroadcastNotification('A new consultation request is awaiting assignment.', 'counselor', 'info', 'consultation', SITE_URL . '/dashboard/counselor/consultations.php');
+                    }
+                } catch (Exception $e) {
+                    // Log notification error but don't fail the consultation creation
+                    error_log("Notification error during consultation creation: " . $e->getMessage());
+                }
+
+                return $newId;
             }
-
-            // Use global email template builder
-
-            // Notify admins
-            $adminLink = SITE_URL . '/dashboard/admin/view_consultation.php?id=' . $newId;
-            addRoleBroadcastNotification('A new consultation request has been submitted.', 'admin', 'info', 'consultation', $adminLink);
-
-            // Notify counselor(s)
-            if ($counselor_id) {
-                // Specific counselor assigned on creation
-                $counselorLink = SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $newId;
-                addSystemNotification($counselor_id, 'A new consultation has been assigned to you.', 'info', 'consultation', $counselorLink);
-            } else {
-                // Broadcast to all counselors if none assigned yet
-                addRoleBroadcastNotification('A new consultation request is awaiting assignment.', 'counselor', 'info', 'consultation', SITE_URL . '/dashboard/counselor/consultations.php');
-            }
-
-            return $newId;
+            
+            return false;
+            
+        } catch (PDOException $e) {
+            error_log("Database error in createRequest: " . $e->getMessage());
+            return false;
+        } catch (Exception $e) {
+            error_log("General error in createRequest: " . $e->getMessage());
+            return false;
         }
-        
-        return false;
     }
     
     // Get all consultation requests

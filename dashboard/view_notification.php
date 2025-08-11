@@ -10,7 +10,7 @@ require_once $base_path . '/includes/utility.php';
 
 // Require login
 if (!isLoggedIn()) {
-    header('Location: ' . SITE_URL . '/login.php');
+    header('Location: ' . rtrim(SITE_URL, '/') . '/login');
     exit;
 }
 
@@ -19,14 +19,14 @@ $role     = getUserRoleSafe($user_id);
 $notif_id = isset($_GET['id']) ? sanitizeInput($_GET['id']) : '';
 
 if (!$notif_id) {
-    redirect(SITE_URL . '/dashboard/' . $role . '/notifications.php');
+    redirect(rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/notifications.php');
 }
 
 // If prefixed ids (msg_/cons_) simply redirect to link resolution logic in JS pages
 if (strpos($notif_id, 'msg_') === 0 || strpos($notif_id, 'cons_') === 0) {
     // Fallback: mark read then redirect back
     markSystemNotificationsAsRead($user_id, $notif_id);
-    redirect(SITE_URL . '/dashboard/' . $role . '/notifications.php');
+    redirect(rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/notifications.php');
 }
 
 // Fetch notification
@@ -37,7 +37,7 @@ $notification = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$notification) {
     setMessage('Notification not found or access denied.', 'danger');
-    redirect(SITE_URL . '/dashboard/' . $role . '/notifications.php');
+    redirect(rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/notifications.php');
 }
 
 // Mark as read if not yet

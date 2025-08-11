@@ -22,7 +22,7 @@ include_once $base_path . '/includes/header.php';
                     <?php if (isLoggedIn()): ?>
                         <a href="<?php echo SITE_URL; ?>/dashboard/" class="btn btn-primary">Return to Dashboard</a>
                     <?php else: ?>
-                        <a href="<?php echo SITE_URL; ?>/login.php" class="btn btn-primary">Login</a>
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/login" class="btn btn-primary">Login</a>
                     <?php endif; ?>
                     
                     <a href="<?php echo SITE_URL; ?>/" class="btn btn-outline-secondary ms-2">Go to Home</a>

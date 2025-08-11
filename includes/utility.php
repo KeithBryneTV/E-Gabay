@@ -1,8 +1,11 @@
 <?php
 // Utility functions for the application
 
+// Include required classes
+require_once __DIR__ . '/../classes/Database.php';
+
 /**
- * Format date
+ * Format date in Philippine timezone
  * 
  * @param string $date Date string
  * @param string $format Format string (default: 'Y-m-d')
@@ -11,14 +14,21 @@
 function formatDate($date, $format = 'Y-m-d') {
     if (!$date) return '';
     
-    $timestamp = strtotime($date);
-    if ($timestamp === false) return '';
-    
-    return date($format, $timestamp);
+    // Create DateTime object with UTC and convert to Philippine timezone
+    try {
+        $dateTime = new DateTime($date, new DateTimeZone('UTC'));
+        $dateTime->setTimezone(new DateTimeZone('Asia/Manila'));
+        return $dateTime->format($format);
+    } catch (Exception $e) {
+        // Fallback for invalid dates
+        $timestamp = strtotime($date);
+        if ($timestamp === false) return '';
+        return date($format, $timestamp);
+    }
 }
 
 /**
- * Format time
+ * Format time in Philippine timezone
  * 
  * @param string $time Time string
  * @param string $format Format string (default: 'h:i A')
@@ -27,43 +37,74 @@ function formatDate($date, $format = 'Y-m-d') {
 function formatTime($time, $format = 'h:i A') {
     if (!$time) return '';
     
-    $timestamp = strtotime($time);
-    if ($timestamp === false) return '';
-    
-    return date($format, $timestamp);
+    // Force local timezone and prevent UTC conversion
+    try {
+        // Set timezone to Asia/Manila first
+        date_default_timezone_set('Asia/Manila');
+        
+        // Create DateTime object with local timezone
+        $dateTime = new DateTime($time, new DateTimeZone('Asia/Manila'));
+        return $dateTime->format($format);
+    } catch (Exception $e) {
+        // Fallback for invalid times
+        date_default_timezone_set('Asia/Manila');
+        $timestamp = strtotime($time);
+        if ($timestamp === false) return '';
+        return date($format, $timestamp);
+    }
 }
 
 /**
- * Calculate time ago
+ * Calculate time ago in Philippine timezone
  * 
  * @param string $datetime Date and time string
  * @return string Time ago
  */
 function timeAgo($datetime) {
-    $time = strtotime($datetime);
-    $now = time();
-    $diff = $now - $time;
-    
-    if ($diff < 60) {
-        return 'Just now';
-    } elseif ($diff < 3600) {
-        $mins = floor($diff / 60);
-        return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 86400) {
-        $hours = floor($diff / 3600);
-        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 604800) {
-        $days = floor($diff / 86400);
-        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 2592000) {
-        $weeks = floor($diff / 604800);
-        return $weeks . ' week' . ($weeks > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 31536000) {
-        $months = floor($diff / 2592000);
-        return $months . ' month' . ($months > 1 ? 's' : '') . ' ago';
-    } else {
-        $years = floor($diff / 31536000);
-        return $years . ' year' . ($years > 1 ? 's' : '') . ' ago';
+    try {
+        // Create DateTime objects in Philippine timezone
+        $timeObj = new DateTime($datetime, new DateTimeZone('UTC'));
+        $timeObj->setTimezone(new DateTimeZone('Asia/Manila'));
+        
+        $nowObj = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        
+        $diff = $nowObj->getTimestamp() - $timeObj->getTimestamp();
+        
+        if ($diff < 60) {
+            return 'Just now';
+        } elseif ($diff < 3600) {
+            $mins = floor($diff / 60);
+            return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 86400) {
+            $hours = floor($diff / 3600);
+            return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 604800) {
+            $days = floor($diff / 86400);
+            return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 2592000) {
+            $weeks = floor($diff / 604800);
+            return $weeks . ' week' . ($weeks > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 31536000) {
+            $months = floor($diff / 2592000);
+            return $months . ' month' . ($months > 1 ? 's' : '') . ' ago';
+        } else {
+            $years = floor($diff / 31536000);
+            return $years . ' year' . ($years > 1 ? 's' : '') . ' ago';
+        }
+    } catch (Exception $e) {
+        // Fallback to old method
+        $time = strtotime($datetime);
+        $now = time();
+        $diff = $now - $time;
+        
+        if ($diff < 60) {
+            return 'Just now';
+        } elseif ($diff < 3600) {
+            $mins = floor($diff / 60);
+            return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
+        } else {
+            return formatDate($datetime, 'M d, Y');
+        }
     }
 }
 
@@ -116,6 +157,10 @@ function setMessage($message, $type = 'info') {
  * @return void
  */
 function redirect($url) {
+    // If the URL is relative (no scheme), prepend SITE_URL
+    if (!preg_match('/^https?:\/\//i', $url)) {
+        $url = rtrim(SITE_URL, '/') . '/' . ltrim($url, '/');
+    }
     header("Location: " . $url);
     exit;
 }
@@ -236,16 +281,21 @@ function getSystemNotifications($user_id, $limit = 10, $category = null) {
         return [];
     }
     
+    // Clean up orphaned system notifications
+    cleanupOrphanedNotifications($db);
+    
     $limit = intval($limit);
-    $query = "SELECT *
-              FROM system_notifications
-              WHERE user_id = ? OR target_role = ?";
+    $query = "SELECT sn.*
+              FROM system_notifications sn
+              LEFT JOIN users u ON sn.user_id = u.user_id
+              WHERE (sn.user_id = ? OR sn.target_role = ?)
+              AND (sn.user_id IS NULL OR u.is_active = 1)";
               
     if ($category) {
-        $query .= " AND category = ?";
+        $query .= " AND sn.category = ?";
     }
     
-    $query .= " ORDER BY created_at DESC
+    $query .= " ORDER BY sn.created_at DESC
                 LIMIT {$limit}";
     
     try {
@@ -280,11 +330,14 @@ function getUnreadSystemNotificationCount($user_id, $category = null) {
     $role = getUserRoleSafe($user_id);
     
     $query = "SELECT COUNT(*) as count
-              FROM system_notifications
-              WHERE (user_id = ? OR target_role = ?) AND is_read = 0";
+              FROM system_notifications sn
+              LEFT JOIN users u ON sn.user_id = u.user_id
+              WHERE (sn.user_id = ? OR sn.target_role = ?) 
+              AND sn.is_read = 0
+              AND (sn.user_id IS NULL OR u.is_active = 1)";
               
     if ($category) {
-        $query .= " AND category = ?";
+        $query .= " AND sn.category = ?";
     }
     
     try {
@@ -369,6 +422,11 @@ function clearSystemNotifications($user_id, $notification_id = null, $category =
     // Determine role for role-based notifications
     $role = getUserRoleSafe($user_id);
 
+    // If admin is clearing all notifications, run orphaned cleanup first
+    if ($role === 'admin' && !$notification_id && !$category) {
+        cleanupAdminNotifications($user_id);
+    }
+
     $query = "DELETE FROM system_notifications WHERE (user_id = ? OR target_role = ?)";
     $params = [$user_id, $role];
 
@@ -441,24 +499,29 @@ function getTotalNotificationCount($user_id) {
  * @return int Number of unread notifications
  */
 function getUnreadMessageAndConsultationCount($user_id) {
-    // Create database connection
-    $database = new Database();
-    $db = $database->getConnection();
-    
-    // Check for unread messages
-    $query = "SELECT COUNT(*) as count FROM chat_messages cm
-              JOIN chat_sessions cs ON cm.chat_id = cs.id
-              WHERE ((cs.student_id = ? AND cm.user_id != ?) OR (cs.counselor_id = ? AND cm.user_id != ?))
-              AND cm.is_read = 0";
-    
     try {
+        $database = new Database();
+        $db = $database->getConnection();
+        // Check for unread messages (excluding deleted/inactive users)
+        $query = "SELECT COUNT(*) as count FROM chat_messages cm
+                  JOIN chat_sessions cs ON cm.chat_id = cs.id
+                  JOIN consultation_requests cr ON cs.consultation_id = cr.id
+                  JOIN users u ON cm.user_id = u.user_id
+                  JOIN users us ON cs.student_id = us.user_id
+                  JOIN users uc ON cs.counselor_id = uc.user_id
+                  WHERE ((cs.student_id = ? AND cm.user_id != ?) OR (cs.counselor_id = ? AND cm.user_id != ?))
+                  AND cm.is_read = 0
+                  AND u.is_active = 1
+                  AND us.is_active = 1
+                  AND uc.is_active = 1";
+        
         $stmt = $db->prepare($query);
         $stmt->execute([$user_id, $user_id, $user_id, $user_id]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $unread_messages = $result ? $result['count'] : 0;
     } catch (Exception $e) {
-        error_log("Error getting unread message count: " . $e->getMessage());
-        $unread_messages = 0;
+        error_log("Database error: " . $e->getMessage());
+        return 0;
     }
     
     // Check for pending/approved consultations based on role
@@ -466,9 +529,12 @@ function getUnreadMessageAndConsultationCount($user_id) {
     
     if ($role == 'student') {
         // For students: check for approved consultations
-        $query = "SELECT COUNT(*) as count FROM consultation_requests
-                  WHERE student_id = ? AND status = 'live' AND 
-                  updated_at > (NOW() - INTERVAL 24 HOUR)";
+        $query = "SELECT COUNT(*) as count FROM consultation_requests cr
+                  JOIN users uc ON cr.counselor_id = uc.user_id
+                  JOIN users us ON cr.student_id = us.user_id
+                  WHERE cr.student_id = ? AND cr.status = 'live' AND 
+                  cr.updated_at > (NOW() - INTERVAL 24 HOUR)
+                  AND uc.is_active = 1 AND us.is_active = 1";
         
         try {
             $stmt = $db->prepare($query);
@@ -481,9 +547,12 @@ function getUnreadMessageAndConsultationCount($user_id) {
         }
     } elseif ($role == 'counselor') {
         // For counselors: check for assigned consultations
-        $query = "SELECT COUNT(*) as count FROM consultation_requests
-                  WHERE counselor_id = ? AND status = 'live' AND 
-                  updated_at > (NOW() - INTERVAL 24 HOUR)";
+        $query = "SELECT COUNT(*) as count FROM consultation_requests cr
+                  JOIN users us ON cr.student_id = us.user_id
+                  JOIN users uc ON cr.counselor_id = uc.user_id
+                  WHERE cr.counselor_id = ? AND cr.status = 'live' AND 
+                  cr.updated_at > (NOW() - INTERVAL 24 HOUR)
+                  AND us.is_active = 1 AND uc.is_active = 1";
         
         try {
             $stmt = $db->prepare($query);
@@ -570,6 +639,161 @@ function getUserRoleSafe($user_id = null) {
 }
 
 /**
+ * Clean up orphaned notifications that reference deleted data
+ * 
+ * @param PDO $db Database connection
+ * @return array Cleanup results with counts of affected records
+ */
+function cleanupOrphanedNotifications($db) {
+    $results = [
+        'orphaned_messages' => 0,
+        'orphaned_sessions' => 0,
+        'orphaned_consultations' => 0,
+        'orphaned_system_notifications' => 0,
+        'errors' => []
+    ];
+    
+    try {
+        // Clean up chat messages that reference deleted users or sessions
+        $cleanup_queries = [
+            // Mark chat messages as read if the user who sent them no longer exists
+            [
+                'query' => "UPDATE chat_messages cm 
+                           LEFT JOIN users u ON cm.user_id = u.user_id 
+                           SET cm.is_read = 1 
+                           WHERE u.user_id IS NULL OR u.is_active = 0",
+                'result_key' => 'orphaned_messages'
+            ],
+            
+            // Mark chat messages as read if the chat session no longer exists
+            [
+                'query' => "UPDATE chat_messages cm 
+                           LEFT JOIN chat_sessions cs ON cm.chat_id = cs.id 
+                           SET cm.is_read = 1 
+                           WHERE cs.id IS NULL",
+                'result_key' => 'orphaned_sessions'
+            ],
+            
+            // Mark chat messages as read if the consultation request no longer exists
+            [
+                'query' => "UPDATE chat_messages cm 
+                           JOIN chat_sessions cs ON cm.chat_id = cs.id 
+                           LEFT JOIN consultation_requests cr ON cs.consultation_id = cr.id 
+                           SET cm.is_read = 1 
+                           WHERE cr.id IS NULL",
+                'result_key' => 'orphaned_consultations'
+            ],
+            
+            // Delete system notifications that reference deleted users
+            [
+                'query' => "DELETE sn FROM system_notifications sn 
+                           LEFT JOIN users u ON sn.user_id = u.user_id 
+                           WHERE sn.user_id IS NOT NULL AND (u.user_id IS NULL OR u.is_active = 0)",
+                'result_key' => 'orphaned_system_notifications'
+            ]
+        ];
+        
+        foreach ($cleanup_queries as $cleanup) {
+            $stmt = $db->prepare($cleanup['query']);
+            $stmt->execute();
+            $results[$cleanup['result_key']] = $stmt->rowCount();
+        }
+        
+    } catch (Exception $e) {
+        $error_msg = "Error cleaning up orphaned notifications: " . $e->getMessage();
+        error_log($error_msg);
+        $results['errors'][] = $error_msg;
+    }
+    
+    return $results;
+}
+
+/**
+ * Run a comprehensive cleanup of orphaned notifications (can be called periodically)
+ * 
+ * @return array Cleanup results
+ */
+function runNotificationCleanup() {
+    $database = new Database();
+    $db = $database->getConnection();
+    
+    if (!$db) {
+        return ['error' => 'Database connection failed'];
+    }
+    
+    $results = cleanupOrphanedNotifications($db);
+    
+    // Log the cleanup results
+    $total_cleaned = array_sum(array_filter($results, 'is_numeric'));
+    error_log("Notification cleanup completed. Total records processed: {$total_cleaned}");
+    
+    return $results;
+}
+
+/**
+ * Clean up admin notifications that point to deleted data
+ * 
+ * @param int $admin_user_id Admin user ID
+ * @return array Cleanup results
+ */
+function cleanupAdminNotifications($admin_user_id) {
+    $database = new Database();
+    $db = $database->getConnection();
+    
+    if (!$db) {
+        return ['error' => 'Database connection failed'];
+    }
+    
+    $results = [
+        'deleted_consultation_notifications' => 0,
+        'deleted_user_notifications' => 0,
+        'deleted_orphaned_notifications' => 0,
+        'errors' => []
+    ];
+    
+    try {
+        // Clean up consultation notifications pointing to deleted consultations
+        $consultation_cleanup = "DELETE sn FROM system_notifications sn 
+                               WHERE (sn.user_id = ? OR sn.target_role = 'admin') 
+                               AND sn.category = 'consultation' 
+                               AND sn.link IS NOT NULL 
+                               AND sn.link REGEXP 'consultation.*id=[0-9]+' 
+                               AND NOT EXISTS (
+                                   SELECT 1 FROM consultation_requests cr 
+                                   WHERE CONCAT('/dashboard/admin/view_consultation.php?id=', cr.id) = SUBSTRING(sn.link, LOCATE('/dashboard/', sn.link))
+                                   OR CONCAT('/dashboard/counselor/view_consultation.php?id=', cr.id) = SUBSTRING(sn.link, LOCATE('/dashboard/', sn.link))
+                               )";
+        $stmt = $db->prepare($consultation_cleanup);
+        $stmt->execute([$admin_user_id]);
+        $results['deleted_consultation_notifications'] = $stmt->rowCount();
+        
+        // Clean up user-related notifications pointing to deleted/inactive users
+        $user_cleanup = "DELETE sn FROM system_notifications sn 
+                        LEFT JOIN users u ON sn.user_id = u.user_id 
+                        WHERE sn.user_id IS NOT NULL 
+                        AND (u.user_id IS NULL OR u.is_active = 0)";
+        $stmt = $db->prepare($user_cleanup);
+        $stmt->execute();
+        $results['deleted_user_notifications'] = $stmt->rowCount();
+        
+        // Clean up very old notifications (older than 30 days) to prevent buildup
+        $old_cleanup = "DELETE FROM system_notifications 
+                       WHERE (user_id = ? OR target_role = 'admin') 
+                       AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        $stmt = $db->prepare($old_cleanup);
+        $stmt->execute([$admin_user_id]);
+        $results['deleted_orphaned_notifications'] = $stmt->rowCount();
+        
+    } catch (Exception $e) {
+        $error_msg = "Error cleaning up admin notifications: " . $e->getMessage();
+        error_log($error_msg);
+        $results['errors'][] = $error_msg;
+    }
+    
+    return $results;
+}
+
+/**
  * Get message and consultation notifications for a user
  * 
  * @param int $user_id User ID
@@ -583,6 +807,9 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
     $notifications = [];
     $role = getUserRoleSafe($user_id);
     
+    // First, clean up orphaned notifications
+    cleanupOrphanedNotifications($db);
+    
     $limit = intval($limit);
     $query = "SELECT cm.*, cs.id as chat_session_id, cs.subject,
               u.first_name, u.last_name,
@@ -590,9 +817,14 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
               FROM chat_messages cm
               JOIN chat_sessions cs ON cm.chat_id = cs.id
               JOIN consultation_requests cr ON cs.consultation_id = cr.id
-              LEFT JOIN users u ON cm.user_id = u.user_id
+              JOIN users u ON cm.user_id = u.user_id
+              JOIN users us ON cs.student_id = us.user_id
+              JOIN users uc ON cs.counselor_id = uc.user_id
               WHERE ((cs.student_id = ? AND cm.user_id != ?) OR (cs.counselor_id = ? AND cm.user_id != ?))
               AND cm.is_read = 0
+              AND u.is_active = 1
+              AND us.is_active = 1
+              AND uc.is_active = 1
               ORDER BY cm.created_at DESC
               LIMIT {$limit}";
     
@@ -617,7 +849,7 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
                 'message' => "New message from {$sender_name} in {$message['subject']}",
                 'created_at' => $message['created_at'],
                 'is_read' => 0,
-                'link' => SITE_URL . '/dashboard/' . $role . '/chat.php?id=' . $message['chat_session_id']
+                'link' => rtrim(SITE_URL, '/') . '/dashboard/' . $role . '/chat.php?chat_id=' . $message['chat_session_id']
             ];
         }
     } catch (Exception $e) {
@@ -630,8 +862,10 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
         $query = "SELECT cr.*, u.first_name, u.last_name
                   FROM consultation_requests cr
                   JOIN users u ON cr.counselor_id = u.user_id
+                  JOIN users us ON cr.student_id = us.user_id
                   WHERE cr.student_id = ? AND cr.status = 'live' AND 
                   cr.updated_at > (NOW() - INTERVAL 24 HOUR)
+                  AND u.is_active = 1 AND us.is_active = 1
                   ORDER BY cr.updated_at DESC
                   LIMIT {$limit}";
         
@@ -646,7 +880,7 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
                     'message' => "Your consultation has been approved by {$consultation['first_name']} {$consultation['last_name']}",
                     'created_at' => $consultation['updated_at'],
                     'is_read' => 0,
-                    'link' => SITE_URL . '/dashboard/student/view_consultation.php?id=' . $consultation['id']
+                    'link' => rtrim(SITE_URL, '/') . '/dashboard/student/view_consultation.php?id=' . $consultation['id']
                 ];
             }
         } catch (Exception $e) {
@@ -657,8 +891,10 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
         $query = "SELECT cr.*, u.first_name, u.last_name
                   FROM consultation_requests cr
                   JOIN users u ON cr.student_id = u.user_id
+                  JOIN users uc ON cr.counselor_id = uc.user_id
                   WHERE cr.counselor_id = ? AND cr.status = 'live' AND 
                   cr.updated_at > (NOW() - INTERVAL 24 HOUR)
+                  AND u.is_active = 1 AND uc.is_active = 1
                   ORDER BY cr.updated_at DESC
                   LIMIT {$limit}";
         
@@ -676,7 +912,7 @@ function getMessageAndConsultationNotifications($user_id, $limit = 5) {
                     'message' => "New consultation assigned with {$student_name}",
                     'created_at' => $consultation['updated_at'],
                     'is_read' => 0,
-                    'link' => SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation['id']
+                    'link' => rtrim(SITE_URL, '/') . '/dashboard/counselor/view_consultation.php?id=' . $consultation['id']
                 ];
             }
         } catch (Exception $e) {
@@ -932,7 +1168,28 @@ function sendEmailTemplate($to, $templateName, $variables = []) {
     
     if (!$template) {
         error_log("Email template '$templateName' not found or inactive");
-        return false;
+        // Create basic fallback for missing templates
+        if ($templateName === 'user_verification') {
+            $template = [
+                'template_subject' => 'Verify Your Email Address - {{site_name}}',
+                'header_title' => 'Welcome to {{site_name}}!',
+                'greeting_text' => 'Hello {{first_name}},',
+                'main_message' => 'Thank you for registering. Please verify your email address by clicking the button below.',
+                'button_text' => 'Verify Email Address',
+                'use_structured_editor' => 1
+            ];
+        } elseif ($templateName === 'password_reset') {
+            $template = [
+                'template_subject' => 'Reset Your Password - {{site_name}}',
+                'header_title' => 'Password Reset Request',
+                'greeting_text' => 'Hello {{first_name}},',
+                'main_message' => 'We received a request to reset your password. Click the button below to reset it.',
+                'button_text' => 'Reset Password',
+                'use_structured_editor' => 1
+            ];
+        } else {
+            return false;
+        }
     }
     
     // Prepare default variables
@@ -1063,10 +1320,37 @@ function sendVerificationEmail($userEmail, $firstName, $verificationToken) {
     $variables = [
         '{{first_name}}' => $firstName,
         '{{email}}' => $userEmail,
-        '{{verification_link}}' => SITE_URL . '/verify.php?token=' . $verificationToken
+        '{{verification_link}}' => rtrim(SITE_URL, '/') . '/verify.php?token=' . $verificationToken
     ];
     
-    return sendEmailTemplate($userEmail, 'user_verification', $variables);
+    // Try template first
+    $result = sendEmailTemplate($userEmail, 'user_verification', $variables);
+    
+    // If template fails, send basic HTML email
+    if (!$result) {
+        $subject = 'Verify Your Email Address - ' . SITE_NAME;
+        $verification_link = rtrim(SITE_URL, '/') . '/verify.php?token=' . $verificationToken;
+        
+        $htmlBody = buildEmailTemplate('
+            <h2>Welcome to ' . SITE_NAME . '!</h2>
+            <p>Hello ' . htmlspecialchars($firstName) . ',</p>
+            <p>Thank you for registering with ' . SITE_NAME . '. To complete your registration, please verify your email address by clicking the button below:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="' . $verification_link . '" 
+                   style="background-color: #007bff; color: white; padding: 12px 30px; 
+                          text-decoration: none; border-radius: 5px; font-weight: bold; 
+                          display: inline-block;">Verify Email Address</a>
+            </div>
+            <p>If the button doesn\'t work, you can also copy and paste this link into your browser:</p>
+            <p><a href="' . $verification_link . '">' . $verification_link . '</a></p>
+            <p>This verification link will expire in 24 hours for security reasons.</p>
+            <p>If you did not create an account, you can safely ignore this email.</p>
+        ');
+        
+        return sendEmail($userEmail, $subject, $htmlBody);
+    }
+    
+    return $result;
 }
 
 /**
@@ -1076,10 +1360,38 @@ function sendPasswordResetEmail($userEmail, $firstName, $resetToken) {
     $variables = [
         '{{first_name}}' => $firstName,
         '{{email}}' => $userEmail,
-        '{{reset_link}}' => SITE_URL . '/reset_password.php?token=' . $resetToken
+        '{{reset_link}}' => rtrim(SITE_URL, '/') . '/reset_password.php?token=' . $resetToken
     ];
     
-    return sendEmailTemplate($userEmail, 'password_reset', $variables);
+    // Try template first
+    $result = sendEmailTemplate($userEmail, 'password_reset', $variables);
+    
+    // If template fails, send basic HTML email
+    if (!$result) {
+        $subject = 'Reset Your Password - ' . SITE_NAME;
+        $reset_link = rtrim(SITE_URL, '/') . '/reset_password.php?token=' . $resetToken;
+        
+        $htmlBody = buildEmailTemplate('
+            <h2>Password Reset Request</h2>
+            <p>Hello ' . htmlspecialchars($firstName) . ',</p>
+            <p>We received a request to reset your password for your ' . SITE_NAME . ' account.</p>
+            <p>Click the button below to reset your password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="' . $reset_link . '" 
+                   style="background-color: #dc3545; color: white; padding: 12px 30px; 
+                          text-decoration: none; border-radius: 5px; font-weight: bold; 
+                          display: inline-block;">Reset Password</a>
+            </div>
+            <p>If the button doesn\'t work, you can also copy and paste this link into your browser:</p>
+            <p><a href="' . $reset_link . '">' . $reset_link . '</a></p>
+            <p>This password reset link will expire in 1 hour for security reasons.</p>
+            <p>If you did not request a password reset, you can safely ignore this email.</p>
+        ');
+        
+        return sendEmail($userEmail, $subject, $htmlBody);
+    }
+    
+    return $result;
 }
 
 /**
@@ -1091,7 +1403,7 @@ function sendWelcomeEmail($userEmail, $firstName, $lastName, $username) {
         '{{last_name}}' => $lastName,
         '{{username}}' => $username,
         '{{email}}' => $userEmail,
-        '{{dashboard_link}}' => SITE_URL . '/dashboard/'
+        '{{dashboard_link}}' => rtrim(SITE_URL, '/') . '/dashboard/'
     ];
     
     return sendEmailTemplate($userEmail, 'welcome_message', $variables);

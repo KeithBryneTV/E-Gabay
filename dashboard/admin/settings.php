@@ -368,7 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $test_email,
                     $settings['admin_email'],
                     SITE_URL . '/verify.php?token=sample123',
-                    SITE_URL . '/reset.php?token=sample123',
+                    SITE_URL . '/reset_password.php?token=sample123',
                     SITE_URL . '/dashboard/',
                     'January 15, 2025',
                     '2:00 PM - 3:00 PM',

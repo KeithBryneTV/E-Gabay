@@ -23,8 +23,19 @@ class Database {
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
             $this->conn->exec("set names utf8");
+            
+            // Set database timezone to Philippine time
+            $this->conn->exec("SET time_zone = '+08:00'");
         } catch(PDOException $exception) {
-            echo "Connection error: " . $exception->getMessage();
+            // Log error for debugging but don't expose database details to users
+            error_log("Database connection error: " . $exception->getMessage());
+            
+            // In production, don't echo database errors directly
+            if (defined('ENVIRONMENT') && ENVIRONMENT === 'production') {
+                // Don't echo anything in production
+            } else {
+                echo "Connection error: " . $exception->getMessage();
+            }
         }
         
         return $this->conn;

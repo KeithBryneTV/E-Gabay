@@ -7,7 +7,7 @@ $maintenance_end_time = Utility::getSetting('maintenance_end_time', 'soon');
 
 // If admin or staff accidentally hits this page while logged in, redirect them back to dashboard
 if (isLoggedIn() && (isAdmin() || isStaff())) {
-    header('Location: ' . SITE_URL . '/dashboard/' . getUserRole() . '/index.php');
+    header('Location: ' . rtrim(SITE_URL, '/') . '/dashboard/' . getUserRole());
     exit;
 }
 ?>
@@ -31,7 +31,7 @@ if (isLoggedIn() && (isAdmin() || isStaff())) {
         <div class="card-body text-center">
             <p class="lead mb-4"><?php echo nl2br(htmlspecialchars($maintenance_message)); ?></p>
             <p class="text-muted">Estimated availability: <strong><?php echo htmlspecialchars($maintenance_end_time); ?></strong></p>
-            <a href="<?php echo SITE_URL; ?>/login.php" class="btn btn-primary mt-3">Return to Login</a>
+            <a href="<?php echo rtrim(SITE_URL, '/'); ?>/login" class="btn btn-primary mt-3">Return to Login</a>
         </div>
     </div>
 </body>

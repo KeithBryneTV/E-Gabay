@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../includes/path_fix.php';
 
 // Include required files
 require_once $base_path . '/config/config.php';
+require_once $base_path . '/includes/auth.php';
+require_once $base_path . '/includes/utility.php';
 require_once $base_path . '/classes/Database.php';
 require_once $base_path . '/classes/Auth.php';
 require_once $base_path . '/classes/Utility.php';
@@ -19,13 +21,28 @@ $current_page = 'notifications';
 $user_id = $_SESSION['user_id'];
 $role = getUserRole();
 
+// Clean up orphaned admin notifications before displaying
+$cleanup_results = cleanupAdminNotifications($user_id);
+
+// Show cleanup message if notifications were automatically cleaned
+if (!isset($_GET['cleanup_orphaned'])) {
+    $auto_cleaned = ($cleanup_results['deleted_consultation_notifications'] ?? 0) + 
+                   ($cleanup_results['deleted_user_notifications'] ?? 0) + 
+                   ($cleanup_results['deleted_orphaned_notifications'] ?? 0);
+    
+    if ($auto_cleaned > 0) {
+        $_SESSION['message'] = "Auto-cleanup: Removed {$auto_cleaned} orphaned notifications.";
+        $_SESSION['message_type'] = 'info';
+    }
+}
+
 // Mark notification as read if requested
 if (isset($_GET['mark_read']) && isset($_GET['id'])) {
     $notification_id = $_GET['id'];
     markSystemNotificationsAsRead($user_id, $notification_id);
     
     // Redirect back to notifications page
-    header("Location: " . SITE_URL . "/dashboard/admin/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/admin/notifications.php");
     exit;
 }
 
@@ -33,7 +50,7 @@ if (isset($_GET['mark_read']) && isset($_GET['id'])) {
 if (isset($_GET['clear']) && isset($_GET['id'])) {
     $notification_id = $_GET['id'];
     clearNotification($user_id, $notification_id);
-    header("Location: " . SITE_URL . "/dashboard/admin/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/admin/notifications.php");
     exit;
 }
 
@@ -42,14 +59,33 @@ if (isset($_GET['mark_all_read'])) {
     markSystemNotificationsAsRead($user_id);
     
     // Redirect back to notifications page
-    header("Location: " . SITE_URL . "/dashboard/admin/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/admin/notifications.php");
     exit;
 }
 
 // Clear all notifications if requested
 if (isset($_GET['clear_all'])) {
     clearSystemNotifications($user_id);
-    header("Location: " . SITE_URL . "/dashboard/admin/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/admin/notifications.php");
+    exit;
+}
+
+// Manual cleanup if requested
+if (isset($_GET['cleanup_orphaned'])) {
+    $manual_cleanup = cleanupAdminNotifications($user_id);
+    $total_cleaned = ($manual_cleanup['deleted_consultation_notifications'] ?? 0) + 
+                    ($manual_cleanup['deleted_user_notifications'] ?? 0) + 
+                    ($manual_cleanup['deleted_orphaned_notifications'] ?? 0);
+    
+    if ($total_cleaned > 0) {
+        $_SESSION['message'] = "Cleanup completed! Removed {$total_cleaned} orphaned notifications.";
+        $_SESSION['message_type'] = 'success';
+    } else {
+        $_SESSION['message'] = "No orphaned notifications found to clean up.";
+        $_SESSION['message_type'] = 'info';
+    }
+    
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/admin/notifications.php");
     exit;
 }
 
@@ -78,18 +114,23 @@ include_once $base_path . '/includes/header.php';
                     <h5 class="mb-0">
                         <i class="fas fa-bell me-2"></i> Admin Notifications
                     </h5>
-                    <?php if (!empty($notifications)): ?>
                     <div class="btn-group">
-                        <a href="<?php echo SITE_URL; ?>/dashboard/admin/notifications.php?mark_all_read=1" class="btn btn-light btn-sm">
+                        <?php if (!empty($notifications)): ?>
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/notifications.php?mark_all_read=1" class="btn btn-light btn-sm">
                             <i class="fas fa-check-double me-1"></i> Mark All as Read
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/dashboard/admin/notifications.php?clear_all=1" class="btn btn-danger btn-sm">
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/notifications.php?clear_all=1" class="btn btn-danger btn-sm">
                             <i class="fas fa-trash me-1"></i> Clear All
                         </a>
+                        <?php endif; ?>
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/notifications.php?cleanup_orphaned=1" class="btn btn-warning btn-sm" title="Clean up notifications pointing to deleted data">
+                            <i class="fas fa-broom me-1"></i> Clean Orphaned
+                        </a>
                     </div>
-                    <?php endif; ?>
                 </div>
                 <div class="card-body p-0">
+                    <?php displayMessage(); ?>
+                    
                     <?php if (empty($notifications)): ?>
                         <div class="notification-empty">
                             <i class="fas fa-bell-slash mb-3"></i>
@@ -176,14 +217,14 @@ include_once $base_path . '/includes/header.php';
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <?php if (!$is_read): ?>
-                                                <a href="<?php echo SITE_URL; ?>/dashboard/admin/notifications.php?mark_read=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-primary" title="Mark as Read">
+                                                <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/notifications.php?mark_read=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-primary" title="Mark as Read">
                                                     <i class="fas fa-check"></i>
                                                 </a>
                                                 <?php endif; ?>
-                                                <a href="<?php echo SITE_URL; ?>/dashboard/admin/notifications.php?clear=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-danger" title="Clear">
+                                                <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/notifications.php?clear=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-danger" title="Clear">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
-                                                <a href="<?php echo ($link && $link != '#') ? $link : SITE_URL . '/dashboard/view_notification.php?id=' . $notification_id; ?>" class="btn btn-primary" title="View">
+                                                <a href="<?php echo ($link && $link != '#') ? $link : rtrim(SITE_URL, '/') . '/dashboard/view_notification.php?id=' . $notification_id; ?>" class="btn btn-primary" title="View">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                             </div>

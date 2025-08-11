@@ -702,6 +702,184 @@ include_once $base_path . '/includes/header.php';
     }
 }</style>
 
+<!-- Assign Counselor Modal -->
+<div class="modal fade" id="assignCounselorModal" tabindex="-1" aria-labelledby="assignCounselorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title" id="assignCounselorModalLabel">
+                    <i class="fas fa-user-plus me-2"></i>Assign Counselor
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="<?php echo SITE_URL; ?>/dashboard/admin/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
+                <input type="hidden" name="action" value="assign_counselor">
+                
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="counselor_id" class="form-label">Select Counselor</label>
+                        <select class="form-select" name="counselor_id" id="counselor_id" required>
+                            <option value="">Choose a counselor...</option>
+                            <?php foreach ($counselors as $counselor_option): ?>
+                                <option value="<?php echo $counselor_option['user_id']; ?>">
+                                    <?php echo $counselor_option['first_name'] . ' ' . $counselor_option['last_name']; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        The selected counselor will be notified and the consultation status will be updated to "pending".
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-user-plus me-2"></i>Assign Counselor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="updateStatusModalLabel">
+                    <i class="fas fa-edit me-2"></i>Update Consultation Status
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="<?php echo SITE_URL; ?>/dashboard/admin/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
+                <input type="hidden" name="action" value="update_status">
+                
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="status" class="form-label">New Status</label>
+                        <select class="form-select" name="status" id="status" required>
+                            <option value="">Select status...</option>
+                            <option value="pending" <?php echo ($consultation_data['status'] === 'pending') ? 'selected' : ''; ?>>Pending</option>
+                            <option value="live" <?php echo ($consultation_data['status'] === 'live') ? 'selected' : ''; ?>>Active/Live</option>
+                            <option value="completed" <?php echo ($consultation_data['status'] === 'completed') ? 'selected' : ''; ?>>Completed</option>
+                            <option value="cancelled" <?php echo ($consultation_data['status'] === 'cancelled') ? 'selected' : ''; ?>>Cancelled</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="counselor_notes" class="form-label">Counselor Notes</label>
+                        <textarea class="form-control" name="counselor_notes" id="counselor_notes" rows="4" 
+                                  placeholder="Add notes about this consultation..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Both the student and counselor will be notified of this status change.
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Update Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Consultation Modal -->
+<div class="modal fade" id="deleteConsultationModal" tabindex="-1" aria-labelledby="deleteConsultationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteConsultationModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Consultation
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="<?php echo SITE_URL; ?>/dashboard/admin/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
+                <input type="hidden" name="action" value="delete">
+                
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> This action cannot be undone.
+                    </div>
+                    
+                    <p>Are you sure you want to delete consultation #<?php echo $consultation_id; ?>?</p>
+                    
+                    <div class="mb-3">
+                        <strong>This will permanently delete:</strong>
+                        <ul class="mt-2">
+                            <li>The consultation request</li>
+                            <li>All related chat sessions and messages</li>
+                            <li>Any feedback associated with this consultation</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                        <label class="form-check-label" for="confirmDelete">
+                            I understand that this action cannot be undone
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                        <i class="fas fa-trash me-2"></i>Delete Consultation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable delete button only when checkbox is checked
+document.getElementById('confirmDelete').addEventListener('change', function() {
+    document.getElementById('deleteBtn').disabled = !this.checked;
+});
+
+// Pre-populate counselor notes when update status modal opens
+document.getElementById('updateStatusModal').addEventListener('show.bs.modal', function() {
+    // Pre-populate existing counselor notes if available
+    const existingNotes = `<?php echo addslashes($consultation_data['counselor_notes'] ?? ''); ?>`;
+    if (existingNotes) {
+        document.getElementById('counselor_notes').value = existingNotes;
+    }
+});
+
+// Enhanced form validation and user feedback
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+            
+            // Re-enable button after 3 seconds in case of slow response
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = submitBtn.getAttribute('data-original-text') || submitBtn.innerHTML.replace('Processing...', 'Submit');
+            }, 3000);
+        }
+    });
+});
+
+// Store original button text for restoration
+document.querySelectorAll('button[type="submit"]').forEach(btn => {
+    btn.setAttribute('data-original-text', btn.innerHTML);
+});
+</script>
+
 <?php
 // Include footer
 include_once $base_path . '/includes/footer.php';

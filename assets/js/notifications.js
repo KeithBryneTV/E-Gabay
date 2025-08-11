@@ -77,6 +77,56 @@ function markNotificationRead(event, notificationId) {
 }
 
 /**
+ * Delete a single notification
+ */
+function deleteNotification(event, notificationId) {
+    if (!notificationId) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (!confirm('Are you sure you want to delete this notification?')) {
+        return;
+    }
+    
+    const BASE_URL = document.querySelector('meta[name="base-url"]').content;
+    fetch(BASE_URL + '/api/delete_notification.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            notification_id: notificationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the notification from the UI
+            const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+            if (notificationItem) {
+                notificationItem.remove();
+            }
+            
+            // Update the notification count
+            updateNotificationCount();
+            
+            // Reload page if on notifications page
+            if (window.location.pathname.includes('notifications.php')) {
+                window.location.reload();
+            }
+        } else {
+            alert('Failed to delete notification: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting notification:', error);
+        alert('Error deleting notification');
+    });
+}
+
+/**
  * Mark all notifications as read
  */
 function markAllNotificationsAsRead() {
@@ -252,11 +302,15 @@ function updateNotifications() {
 }
 
 /**
- * Format time ago
+ * Format time ago in Philippine timezone
  */
 function timeAgo(timestamp) {
-    const now = new Date();
-    const past = new Date(timestamp);
+    // Get current time in Philippine timezone
+    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Manila"}));
+    
+    // Convert past time to Philippine timezone
+    const past = new Date(new Date(timestamp).toLocaleString("en-US", {timeZone: "Asia/Manila"}));
+    
     const diff = Math.floor((now - past) / 1000); // seconds
     
     if (diff < 60) {

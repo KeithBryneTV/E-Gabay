@@ -474,7 +474,7 @@ include_once $base_path . '/includes/header.php';
                 <?php else: ?>
                     <div class="list-group">
                         <?php foreach ($today_consultations as $consultation): ?>
-                            <a href="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation['id']; ?>" class="list-group-item list-group-item-action">
+                            <a href="view_consultation.php?id=<?php echo $consultation['id']; ?>" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">
                                         <?php if ($consultation['is_anonymous']): ?>
@@ -548,7 +548,7 @@ include_once $base_path . '/includes/header.php';
                                         </td>
                                         <td><?php echo ucfirst(str_replace('_', ' ', $consultation['communication_method'])); ?></td>
                                         <td>
-                                            <a href="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation['id']; ?>" class="btn btn-sm btn-primary">
+                                            <a href="view_consultation.php?id=<?php echo $consultation['id']; ?>" class="btn btn-sm btn-primary">
                                                 <i class="fas fa-eye"></i> View
                                             </a>
                                         </td>
@@ -601,7 +601,7 @@ include_once $base_path . '/includes/header.php';
                                         </td>
                                         <td><?php echo ucfirst(str_replace('_', ' ', $consultation['communication_method'])); ?></td>
                                         <td>
-                                            <a href="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation['id']; ?>" class="btn btn-sm btn-success">
+                                            <a href="view_consultation.php?id=<?php echo $consultation['id']; ?>" class="btn btn-sm btn-success">
                                                 <i class="fas fa-comments"></i> Chat
                                             </a>
                                         </td>

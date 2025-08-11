@@ -103,21 +103,27 @@ include_once $base_path . '/includes/header.php';
             <div class="card-body">
                 <h5 class="card-title">Filter by Status</h5>
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="<?php echo $_SERVER['PHP_SELF']; ?>" class="btn <?php echo empty($status_filter) ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        All
-                    </a>
-                    <a href="<?php echo $_SERVER['PHP_SELF']; ?>?status=pending" class="btn <?php echo $status_filter === 'pending' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Pending
-                    </a>
-                    <a href="<?php echo $_SERVER['PHP_SELF']; ?>?status=live" class="btn <?php echo $status_filter === 'live' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Active
-                    </a>
-                    <a href="<?php echo $_SERVER['PHP_SELF']; ?>?status=completed" class="btn <?php echo $status_filter === 'completed' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Completed
-                    </a>
-                    <a href="<?php echo $_SERVER['PHP_SELF']; ?>?status=cancelled" class="btn <?php echo $status_filter === 'cancelled' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Cancelled
-                    </a>
+                    <div class="btn-group" role="group">
+                        <a href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php" class="btn <?php echo $status_filter === 'all' ? 'btn-primary' : 'btn-outline-primary'; ?>">All</a>
+                        <a href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php?status=pending" class="btn <?php echo $status_filter === 'pending' ? 'btn-primary' : 'btn-outline-primary'; ?>">Pending</a>
+                        <a href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php?status=live" class="btn <?php echo $status_filter === 'live' ? 'btn-primary' : 'btn-outline-primary'; ?>">Active</a>
+                        <a href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php?status=completed" class="btn <?php echo $status_filter === 'completed' ? 'btn-primary' : 'btn-outline-primary'; ?>">
+                            Completed
+                            <?php
+                            // Count completed consultations without feedback
+                            $stmt = $db->prepare("SELECT COUNT(*) as count FROM consultation_requests cr 
+                                                 WHERE cr.student_id = ? AND cr.status = 'completed' 
+                                                 AND NOT EXISTS (SELECT 1 FROM feedback f WHERE f.consultation_id = cr.id AND f.student_id = cr.student_id)");
+                            $stmt->execute([$user_id]);
+                            $pending_feedback_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                            if ($pending_feedback_count > 0): ?>
+                                <span class="badge bg-warning text-dark ms-1"><?php echo $pending_feedback_count; ?></span>
+                            <?php endif; ?>
+                        </a>
+                        <a href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php?status=cancelled" class="btn <?php echo $status_filter === 'cancelled' ? 'btn-primary' : 'btn-outline-primary'; ?>">
+                            Cancelled
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -211,8 +217,21 @@ include_once $base_path . '/includes/header.php';
                                         <?php endif; ?>
                                         
                                         <?php if ($consultation['status'] === 'completed' && !hasFeedback($consultation['id'], $user_id)): ?>
-                                            <a href="<?php echo SITE_URL; ?>/dashboard/student/feedback.php?id=<?php echo $consultation['id']; ?>" class="btn btn-sm btn-warning">
-                                                <i class="fas fa-star"></i>
+                                            <a href="<?php echo SITE_URL; ?>/dashboard/student/feedback.php?id=<?php echo $consultation['id']; ?>" 
+                                               class="btn btn-sm btn-warning position-relative" 
+                                               title="Provide feedback for this consultation"
+                                               data-bs-toggle="tooltip">
+                                                <i class="fas fa-star"></i> Feedback
+                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                                    <span class="visually-hidden">Feedback needed</span>
+                                                </span>
+                                            </a>
+                                        <?php elseif ($consultation['status'] === 'completed' && hasFeedback($consultation['id'], $user_id)): ?>
+                                            <a href="<?php echo SITE_URL; ?>/dashboard/student/feedback.php?id=<?php echo $consultation['id']; ?>" 
+                                               class="btn btn-sm btn-success" 
+                                               title="View/Edit your feedback"
+                                               data-bs-toggle="tooltip">
+                                                <i class="fas fa-check-circle"></i> Feedback Given
                                             </a>
                                         <?php endif; ?>
                                     </div>
@@ -264,6 +283,16 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             document.getElementById('cancel_consultation_id').value = this.dataset.consultationId;
         });
+    });
+});
+</script>
+
+<script>
+// Initialize Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 });
 </script>

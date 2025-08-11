@@ -42,5 +42,5 @@ if (in_array($role_name, ['admin', 'staff'], true)) {
 }
 
 // Redirect everyone else to maintenance page
-header('Location: ' . SITE_URL . '/maintenance.php');
+    header('Location: ' . rtrim(SITE_URL, '/') . '/maintenance');
 exit; 

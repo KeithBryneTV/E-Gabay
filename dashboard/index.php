@@ -8,7 +8,7 @@ require_once $base_path . '/config/config.php';
 // Check if user is logged in
 if (!isLoggedIn()) {
     // Redirect to login page
-    header("Location: " . SITE_URL . "/login.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/login");
     exit;
 }
 
@@ -31,7 +31,7 @@ switch ($role) {
         break;
     default:
         // Fallback to login page if role is unknown
-        header("Location: " . SITE_URL . "/login.php");
+        header("Location: " . rtrim(SITE_URL, '/') . "/login");
         break;
 }
 exit;

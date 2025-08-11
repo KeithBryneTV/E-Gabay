@@ -25,7 +25,7 @@ if (isset($_GET['mark_read']) && isset($_GET['id'])) {
     markSystemNotificationsAsRead($user_id, $notification_id);
     
     // Redirect back to notifications page
-    header("Location: " . SITE_URL . "/dashboard/student/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/student/notifications.php");
     exit;
 }
 
@@ -33,7 +33,7 @@ if (isset($_GET['mark_read']) && isset($_GET['id'])) {
 if (isset($_GET['clear']) && isset($_GET['id'])) {
     $notification_id = $_GET['id'];
     clearNotification($user_id, $notification_id);
-    header("Location: " . SITE_URL . "/dashboard/student/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/student/notifications.php");
     exit;
 }
 
@@ -42,14 +42,14 @@ if (isset($_GET['mark_all_read'])) {
     markSystemNotificationsAsRead($user_id);
     
     // Redirect back to notifications page
-    header("Location: " . SITE_URL . "/dashboard/student/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/student/notifications.php");
     exit;
 }
 
 // Clear all notifications
 if (isset($_GET['clear_all'])) {
     clearSystemNotifications($user_id);
-    header("Location: " . SITE_URL . "/dashboard/student/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/student/notifications.php");
     exit;
 }
 
@@ -80,10 +80,10 @@ include_once $base_path . '/includes/header.php';
                     </h5>
                     <?php if (!empty($notifications)): ?>
                     <div class="btn-group">
-                        <a href="<?php echo SITE_URL; ?>/dashboard/student/notifications.php?mark_all_read=1" class="btn btn-light btn-sm">
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/notifications.php?mark_all_read=1" class="btn btn-light btn-sm">
                             <i class="fas fa-check-double me-1"></i> Mark All as Read
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/dashboard/student/notifications.php?clear_all=1" class="btn btn-danger btn-sm">
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/notifications.php?clear_all=1" class="btn btn-danger btn-sm">
                             <i class="fas fa-trash me-1"></i> Clear All
                         </a>
                     </div>
@@ -176,14 +176,14 @@ include_once $base_path . '/includes/header.php';
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <?php if (!$is_read): ?>
-                                                <a href="<?php echo SITE_URL; ?>/dashboard/student/notifications.php?mark_read=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-primary" title="Mark as Read">
+                                                <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/notifications.php?mark_read=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-primary" title="Mark as Read">
                                                     <i class="fas fa-check"></i>
                                                 </a>
                                                 <?php endif; ?>
-                                                <a href="<?php echo SITE_URL; ?>/dashboard/student/notifications.php?clear=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-danger" title="Clear">
+                                                <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/notifications.php?clear=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-danger" title="Clear">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
-                                                <a href="<?php echo ($link && $link != '#') ? $link : SITE_URL . '/dashboard/view_notification.php?id=' . $notification_id; ?>" class="btn btn-primary" title="View">
+                                                <a href="<?php echo ($link && $link != '#') ? $link : rtrim(SITE_URL, '/') . '/dashboard/view_notification.php?id=' . $notification_id; ?>" class="btn btn-primary" title="View">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                             </div>

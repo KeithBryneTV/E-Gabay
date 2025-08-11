@@ -293,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     
     // Redirect to refresh page and show message
-    header("Location: " . SITE_URL . "/profile.php");
+            header("Location: " . rtrim(SITE_URL, '/') . "/profile");
     exit;
 }
 

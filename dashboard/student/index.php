@@ -99,40 +99,67 @@ $unread_count = getUnreadMessageAndConsultationCount($user_id);
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'create_consultation') {
-        // Create new consultation request
-        $issue_description = sanitizeInput($_POST['issue_description']);
-        $issue_category = sanitizeInput($_POST['issue_category']);
-        $preferred_date = sanitizeInput($_POST['preferred_date']);
-        $preferred_time = sanitizeInput($_POST['preferred_time']);
-        $communication_method = sanitizeInput($_POST['communication_method']);
-        $is_anonymous = isset($_POST['is_anonymous']) ? 1 : 0;
-        $counselor_id = !empty($_POST['counselor_id']) ? (int)$_POST['counselor_id'] : null;
-        
-        // Validate input
-        if (empty($issue_description) || empty($preferred_date) || empty($preferred_time) || empty($communication_method)) {
-            setMessage('All required fields must be filled out.', 'danger');
-        } else {
-            // Create consultation request
-            $result = $consultation->createRequest(
-                $user_id,
-                $issue_description,
-                $preferred_date,
-                $preferred_time,
-                $communication_method,
-                $is_anonymous,
-                $issue_category,
-                $counselor_id
-            );
+        try {
+            // Create new consultation request using trim instead of sanitizeInput
+            $issue_description = trim($_POST['issue_description'] ?? '');
+            $issue_category = trim($_POST['issue_category'] ?? '');
+            $preferred_date = trim($_POST['preferred_date'] ?? '');
+            $preferred_time = trim($_POST['preferred_time'] ?? '');
+            $communication_method = trim($_POST['communication_method'] ?? '');
+            $is_anonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+            $counselor_id = !empty($_POST['counselor_id']) ? (int)$_POST['counselor_id'] : null;
             
-            if ($result) {
-                setMessage('Consultation request submitted successfully.', 'success');
-                
-                // Redirect to prevent form resubmission
-                redirect(SITE_URL . '/dashboard/student/index.php');
-                exit;
-            } else {
-                setMessage('Failed to submit consultation request.', 'danger');
+            // Enhanced validation
+            $errors = [];
+            
+            if (empty($issue_description)) {
+                $errors[] = 'Please describe your concern or issue.';
+            } elseif (strlen($issue_description) < 10) {
+                $errors[] = 'Issue description must be at least 10 characters long.';
             }
+            
+            if (empty($preferred_date)) {
+                $errors[] = 'Please select a preferred date.';
+            }
+            
+            if (empty($preferred_time)) {
+                $errors[] = 'Please select a preferred time.';
+            }
+            
+            if (empty($communication_method)) {
+                $errors[] = 'Please select a communication method.';
+            }
+            
+            if (!empty($errors)) {
+                foreach ($errors as $error) {
+                    setMessage($error, 'danger');
+                }
+            } else {
+                // Create consultation request
+                $result = $consultation->createRequest(
+                    $user_id,
+                    $issue_description,
+                    $preferred_date,
+                    $preferred_time,
+                    $communication_method,
+                    $is_anonymous,
+                    $issue_category,
+                    $counselor_id
+                );
+                
+                if ($result) {
+                    setMessage('Consultation request submitted successfully! You will be notified when a counselor is assigned.', 'success');
+                    
+                    // Redirect to prevent form resubmission
+                    redirect(SITE_URL . '/dashboard/student/index.php');
+                    exit;
+                } else {
+                    setMessage('Failed to submit consultation request. Please try again or contact support.', 'danger');
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Consultation request error (dashboard): " . $e->getMessage());
+            setMessage('An unexpected error occurred. Please try again later.', 'danger');
         }
     }
 }
@@ -373,9 +400,19 @@ include_once $base_path . '/includes/header.php';
                 </a>
             </div>
             <div class="col-lg-3 col-md-6">
-                <a href="<?php echo SITE_URL; ?>/dashboard/student/feedback.php" class="action-btn action-btn-info w-100">
+                <a href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php?status=completed" class="action-btn action-btn-info w-100 position-relative">
                     <i class="fas fa-star"></i>
-                    Feedback
+                    Give Feedback
+                    <?php
+                    // Count completed consultations without feedback
+                    $stmt = $db->prepare("SELECT COUNT(*) as count FROM consultation_requests cr 
+                                         WHERE cr.student_id = ? AND cr.status = 'completed' 
+                                         AND NOT EXISTS (SELECT 1 FROM feedback f WHERE f.consultation_id = cr.id AND f.student_id = cr.student_id)");
+                    $stmt->execute([$user_id]);
+                    $pending_feedback = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                    if ($pending_feedback > 0): ?>
+                        <span class="badge bg-danger position-absolute top-0 start-100 translate-middle"><?php echo $pending_feedback; ?></span>
+                    <?php endif; ?>
                 </a>
             </div>
         </div>

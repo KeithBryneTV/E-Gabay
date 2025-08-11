@@ -19,35 +19,63 @@ class Utility {
         return $randomString;
     }
     
-    // Format date
+    // Format date in Philippine timezone
     public static function formatDate($date, $format = 'M d, Y') {
-        return date($format, strtotime($date));
+        try {
+            $dateTime = new DateTime($date, new DateTimeZone('UTC'));
+            $dateTime->setTimezone(new DateTimeZone('Asia/Manila'));
+            return $dateTime->format($format);
+        } catch (Exception $e) {
+            return date($format, strtotime($date));
+        }
     }
     
-    // Format time
+    // Format time in Philippine timezone
     public static function formatTime($time, $format = 'h:i A') {
-        return date($format, strtotime($time));
+        try {
+            $dateTime = new DateTime($time, new DateTimeZone('UTC'));
+            $dateTime->setTimezone(new DateTimeZone('Asia/Manila'));
+            return $dateTime->format($format);
+        } catch (Exception $e) {
+            return date($format, strtotime($time));
+        }
     }
     
-    // Get time ago
+    // Get time ago in Philippine timezone
     public static function timeAgo($datetime) {
-        $time = strtotime($datetime);
-        $now = time();
-        $diff = $now - $time;
-        
-        if ($diff < 60) {
-            return 'Just now';
-        } elseif ($diff < 3600) {
-            $mins = floor($diff / 60);
-            return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
-        } elseif ($diff < 86400) {
-            $hours = floor($diff / 3600);
-            return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-        } elseif ($diff < 604800) {
-            $days = floor($diff / 86400);
-            return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-        } else {
-            return self::formatDate($datetime);
+        try {
+            $timeObj = new DateTime($datetime, new DateTimeZone('UTC'));
+            $timeObj->setTimezone(new DateTimeZone('Asia/Manila'));
+            
+            $nowObj = new DateTime('now', new DateTimeZone('Asia/Manila'));
+            
+            $diff = $nowObj->getTimestamp() - $timeObj->getTimestamp();
+            
+            if ($diff < 60) {
+                return 'Just now';
+            } elseif ($diff < 3600) {
+                $mins = floor($diff / 60);
+                return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
+            } elseif ($diff < 86400) {
+                $hours = floor($diff / 3600);
+                return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+            } elseif ($diff < 604800) {
+                $days = floor($diff / 86400);
+                return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+            } else {
+                return self::formatDate($datetime);
+            }
+        } catch (Exception $e) {
+            // Fallback
+            $time = strtotime($datetime);
+            $now = time();
+            $diff = $now - $time;
+            
+            if ($diff < 60) {
+                return 'Just now';
+            } else {
+                return self::formatDate($datetime);
+            }
         }
     }
     

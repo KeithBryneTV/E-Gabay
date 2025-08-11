@@ -88,7 +88,7 @@ function requireLogin() {
         session_start();
         $_SESSION['message'] = 'Your session has expired. Please log in again.';
         $_SESSION['message_type'] = 'warning';
-        header("Location: " . SITE_URL . "/login.php");
+        header("Location: " . rtrim(SITE_URL, '/') . "/login");
         exit();
     }
 }
@@ -104,7 +104,7 @@ function requireRole($required_roles) {
     if (!in_array($user_role, (array)$required_roles)) {
         $_SESSION['message'] = 'You do not have permission to access this page.';
         $_SESSION['message_type'] = 'danger';
-        header("Location: " . SITE_URL . "/unauthorized.php");
+        header("Location: " . rtrim(SITE_URL, '/') . "/unauthorized");
         exit();
     }
 }

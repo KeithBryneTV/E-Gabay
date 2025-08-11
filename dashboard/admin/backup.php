@@ -8,6 +8,7 @@ require_once $base_path . '/config/config.php';
 // Include required classes
 require_once $base_path . '/classes/Database.php';
 require_once $base_path . '/classes/Auth.php';
+require_once $base_path . '/includes/utility.php';
 
 // Check if user is logged in and has admin role
 requireRole('admin');
@@ -29,101 +30,214 @@ if (!file_exists($backup_dir)) {
     mkdir($backup_dir, 0755, true);
 }
 
+/**
+ * Generate database backup using PHP (works on shared hosting)
+ */
+function generateDatabaseBackup($conn, $db_name) {
+    $backup_content = "";
+    
+    // Add header
+    $backup_content .= "-- E-GABAY Database Backup\n";
+    $backup_content .= "-- Generated on: " . date('Y-m-d H:i:s') . "\n";
+    $backup_content .= "-- Database: {$db_name}\n\n";
+    
+    $backup_content .= "SET FOREIGN_KEY_CHECKS=0;\n";
+    $backup_content .= "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n";
+    $backup_content .= "SET AUTOCOMMIT = 0;\n";
+    $backup_content .= "START TRANSACTION;\n";
+    $backup_content .= "SET time_zone = \"+00:00\";\n\n";
+    
+    try {
+        // Get all tables
+        $stmt = $conn->query("SHOW TABLES");
+        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        foreach ($tables as $table) {
+            $backup_content .= "-- --------------------------------------------------------\n";
+            $backup_content .= "-- Table structure for table `{$table}`\n";
+            $backup_content .= "-- --------------------------------------------------------\n\n";
+            
+            // Drop table if exists
+            $backup_content .= "DROP TABLE IF EXISTS `{$table}`;\n";
+            
+            // Get table structure
+            $stmt = $conn->query("SHOW CREATE TABLE `{$table}`");
+            $create_table = $stmt->fetch(PDO::FETCH_ASSOC);
+            $backup_content .= $create_table['Create Table'] . ";\n\n";
+            
+            // Get table data
+            $backup_content .= "-- Dumping data for table `{$table}`\n\n";
+            
+            $stmt = $conn->query("SELECT * FROM `{$table}`");
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (!empty($rows)) {
+                // Get column names
+                $columns = array_keys($rows[0]);
+                $column_list = "`" . implode("`, `", $columns) . "`";
+                
+                $backup_content .= "INSERT INTO `{$table}` ({$column_list}) VALUES\n";
+                
+                $value_strings = [];
+                foreach ($rows as $row) {
+                    $values = [];
+                    foreach ($row as $value) {
+                        if ($value === null) {
+                            $values[] = 'NULL';
+                        } else {
+                            $values[] = $conn->quote($value);
+                        }
+                    }
+                    $value_strings[] = "(" . implode(", ", $values) . ")";
+                }
+                
+                $backup_content .= implode(",\n", $value_strings) . ";\n\n";
+            } else {
+                $backup_content .= "-- No data for table `{$table}`\n\n";
+            }
+        }
+        
+        $backup_content .= "SET FOREIGN_KEY_CHECKS=1;\n";
+        $backup_content .= "COMMIT;\n";
+        
+    } catch (Exception $e) {
+        throw new Exception("Error generating backup: " . $e->getMessage());
+    }
+    
+    return $backup_content;
+}
+
+/**
+ * Restore database from SQL file using PHP
+ */
+function restoreDatabaseFromFile($conn, $backup_path) {
+    if (!file_exists($backup_path)) {
+        throw new Exception("Backup file not found: {$backup_path}");
+    }
+    
+    $sql_content = file_get_contents($backup_path);
+    if ($sql_content === false) {
+        throw new Exception("Failed to read backup file");
+    }
+    
+    // Split SQL into individual statements
+    $statements = explode(';', $sql_content);
+    
+    $conn->beginTransaction();
+    
+    try {
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+            if (empty($statement) || substr($statement, 0, 2) === '--') {
+                continue; // Skip empty lines and comments
+            }
+            
+            $conn->exec($statement);
+        }
+        
+        $conn->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        throw new Exception("Error restoring database: " . $e->getMessage());
+    }
+}
+
 // Process backup request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     switch ($_POST['action']) {
         case 'create_backup':
-            // Create database backup
-            $backup_file = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
-            $backup_path = $backup_dir . $backup_file;
-            
-            // Determine mysqldump path
-            $mysqldump = 'mysqldump';
-            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-                $possible = [
-                    'C:\\xampp\\mysql\\bin\\mysqldump.exe',
-                    'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
-                ];
-                foreach ($possible as $p) {
-                    if (file_exists($p)) { $mysqldump = '"' . $p . '"'; break; }
-                }
-            }
-
-            $command = "$mysqldump --host=" . escapeshellarg($db_host) . " --user=" . escapeshellarg($db_user);
-            if ($db_pass) { $command .= " --password=" . escapeshellarg($db_pass); }
-            $command .= " " . escapeshellarg($db_name) . " > " . escapeshellarg($backup_path);
-            
-            // Execute command
-            $output = [];
-            $return_var = 0;
-            exec($command, $output, $return_var);
-            
-            if ($return_var === 0) {
-                // Log the backup
-                $ip_address = $_SERVER['REMOTE_ADDR'];
-                $description = "Created database backup: {$backup_file}";
+            try {
+                // Create database backup using PHP (works on shared hosting)
+                $backup_file = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
+                $backup_path = $backup_dir . $backup_file;
                 
                 $db = new Database();
                 $conn = $db->getConnection();
                 
-                $log_query = "INSERT INTO system_logs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)";
-                $log_stmt = $conn->prepare($log_query);
-                $log_stmt->execute([$_SESSION['user_id'], 'system', $ip_address, $description]);
+                if (!$conn) {
+                    throw new Exception('Database connection failed');
+                }
                 
-                setMessage('Database backup created successfully.', 'success');
-            } else {
-                setMessage('Failed to create database backup. Error: ' . implode(' ', $output), 'danger');
+                // Create backup content
+                $backup_content = generateDatabaseBackup($conn, $db_name);
+                
+                // Write backup to file
+                if (file_put_contents($backup_path, $backup_content) !== false) {
+                    // Log the backup
+                    $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+                    $description = "Created database backup: {$backup_file}";
+                    
+                    // Log only if system_logs table exists
+                    try {
+                        $log_query = "INSERT INTO system_logs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)";
+                        $log_stmt = $conn->prepare($log_query);
+                        $log_stmt->execute([$_SESSION['user_id'], 'system', $ip_address, $description]);
+                    } catch (Exception $e) {
+                        // If system_logs doesn't exist, just continue without logging
+                        error_log("Could not log backup action: " . $e->getMessage());
+                    }
+                    
+                    setMessage('Database backup created successfully. File: ' . $backup_file, 'success');
+                } else {
+                    throw new Exception('Failed to write backup file');
+                }
+                
+            } catch (Exception $e) {
+                setMessage('Failed to create database backup. Error: ' . $e->getMessage(), 'danger');
+                error_log("Backup error: " . $e->getMessage());
             }
             break;
             
         case 'restore_backup':
-            // Restore database from backup
-            if (isset($_POST['backup_file'])) {
+            try {
+                // Restore database from backup using PHP (works on shared hosting)
+                if (!isset($_POST['backup_file'])) {
+                    throw new Exception('No backup file selected');
+                }
+                
                 $backup_file = $_POST['backup_file'];
                 $backup_path = $backup_dir . $backup_file;
                 
                 // Validate file exists and is a SQL file
-                if (file_exists($backup_path) && pathinfo($backup_path, PATHINFO_EXTENSION) === 'sql') {
-                    // Determine mysql path
-                    $mysqlcli = 'mysql';
-                    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-                        $poss = [
-                            'C:\\xampp\\mysql\\bin\\mysql.exe',
-                            'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe',
-                        ];
-                        foreach ($poss as $p) { if (file_exists($p)) { $mysqlcli = '"' . $p . '"'; break; } }
-                    }
-                    // Command to restore backup
-                    $command = "$mysqlcli --host=" . escapeshellarg($db_host) . " --user=" . escapeshellarg($db_user);
-                    if ($db_pass) { $command .= " --password=" . escapeshellarg($db_pass); }
-                    $command .= " " . escapeshellarg($db_name) . " < " . escapeshellarg($backup_path);
-                    
-                    // Execute command
-                    $output = [];
-                    $return_var = 0;
-                    exec($command, $output, $return_var);
-                    
-                    if ($return_var === 0) {
-                        // Log the restore
-                        $ip_address = $_SERVER['REMOTE_ADDR'];
-                        $description = "Restored database from backup: {$backup_file}";
-                        
-                        $db = new Database();
-                        $conn = $db->getConnection();
-                        
-                        $log_query = "INSERT INTO system_logs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)";
-                        $log_stmt = $conn->prepare($log_query);
-                        $log_stmt->execute([$_SESSION['user_id'], 'system', $ip_address, $description]);
-                        
-                        setMessage('Database restored successfully.', 'success');
-                    } else {
-                        setMessage('Failed to restore database. Error: ' . implode(' ', $output), 'danger');
-                    }
-                } else {
-                    setMessage('Invalid backup file.', 'danger');
+                if (!file_exists($backup_path)) {
+                    throw new Exception('Backup file not found');
                 }
-            } else {
-                setMessage('No backup file selected.', 'danger');
+                
+                if (pathinfo($backup_path, PATHINFO_EXTENSION) !== 'sql') {
+                    throw new Exception('Invalid backup file format. Only SQL files are allowed');
+                }
+                
+                $db = new Database();
+                $conn = $db->getConnection();
+                
+                if (!$conn) {
+                    throw new Exception('Database connection failed');
+                }
+                
+                // Restore from backup file
+                restoreDatabaseFromFile($conn, $backup_path);
+                
+                // Log the restore
+                $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+                $description = "Restored database from backup: {$backup_file}";
+                
+                // Log only if system_logs table exists
+                try {
+                    $log_query = "INSERT INTO system_logs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)";
+                    $log_stmt = $conn->prepare($log_query);
+                    $log_stmt->execute([$_SESSION['user_id'], 'system', $ip_address, $description]);
+                } catch (Exception $e) {
+                    // If system_logs doesn't exist, just continue without logging
+                    error_log("Could not log restore action: " . $e->getMessage());
+                }
+                
+                setMessage('Database restored successfully from: ' . $backup_file, 'success');
+                
+            } catch (Exception $e) {
+                setMessage('Failed to restore database. Error: ' . $e->getMessage(), 'danger');
+                error_log("Restore error: " . $e->getMessage());
             }
             break;
             

@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../includes/path_fix.php';
 
 // Required includes with absolute paths
 require_once $base_path . '/config/config.php';
+require_once $base_path . '/includes/auth.php';
+require_once $base_path . '/includes/utility.php';
 
 // Include required classes
 require_once $base_path . '/classes/Database.php';
@@ -58,16 +60,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get counselor profile and availability
+// Get counselor profile and availability (create if doesn't exist)
 $query = "SELECT * FROM counselor_profiles WHERE user_id = ?";
 $stmt = $db->prepare($query);
 $stmt->execute([$user_id]);
 $profile = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Create counselor profile if it doesn't exist
+if (!$profile) {
+    $create_query = "INSERT INTO counselor_profiles (user_id, specialization, bio) VALUES (?, 'General Counseling', 'Available for consultation')";
+    $create_stmt = $db->prepare($create_query);
+    $create_stmt->execute([$user_id]);
+    
+    // Get the newly created profile
+    $stmt->execute([$user_id]);
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
 // Parse availability
 $availability = [];
-if ($profile && isset($profile['availability'])) {
-    $availability = json_decode($profile['availability'], true);
+if ($profile && isset($profile['availability']) && !empty($profile['availability'])) {
+    $availability = json_decode($profile['availability'], true) ?: [];
 }
 
 // Default availability if not set
@@ -174,7 +187,7 @@ include_once $base_path . '/includes/header.php';
                 <?php else: ?>
                     <div class="list-group list-group-flush">
                         <?php foreach ($upcoming_consultations as $consultation): ?>
-                            <a href="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation['id']; ?>" class="list-group-item list-group-item-action">
+                            <a href="view_consultation.php?id=<?php echo $consultation['id']; ?>" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">
                                         <?php if ($consultation['is_anonymous']): ?>

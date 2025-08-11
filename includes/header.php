@@ -28,7 +28,29 @@ if (isLoggedIn()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>E-GABAY</title>
+    <meta name="base-url" content="<?php echo SITE_URL; ?>">
+    
+    <?php
+    // Generate canonical URL to prevent duplicate indexing
+$current_url = rtrim(SITE_URL, '/') . $_SERVER['REQUEST_URI'];
+
+// Remove .php extension from canonical URL if present
+$canonical_url = str_replace('.php', '', $current_url);
+    
+    // Clean up any query parameters for SEO
+    $canonical_url = strtok($canonical_url, '?');
+    ?>
+    <link rel="canonical" href="<?php echo $canonical_url; ?>">
+    <meta name="robots" content="index, follow">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="<?php echo isset($page_description) ? $page_description : 'E-GABAY ASC - Academic Support and Counseling System for students and counselors'; ?>">
+    <meta name="keywords" content="academic support, counseling, student services, ASC, guidance, consultation">
+    
+    <!-- Google Search Console Verification (uncomment and add your verification code) -->
+    <!-- <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE_HERE"> -->
+    
+    <title><?php echo isset($page_title) ? $page_title . ' - ' . SITE_NAME : SITE_NAME; ?></title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -553,12 +575,12 @@ if (isLoggedIn()) {
                             <a class="nav-link <?php echo ($current_page == 'index') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?php echo ($current_page == 'login') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/login.php">Login</a>
+                            <a class="nav-link <?php echo ($current_page == 'login') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/login">Login</a>
                         </li>
                     <?php else: ?>
                         <!-- Notifications Link -->
                         <li class="nav-item d-none d-md-block">
-                            <a class="nav-link position-relative" href="<?php echo SITE_URL; ?>/dashboard/<?php echo $role; ?>/notifications.php">
+                            <a class="nav-link position-relative" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/<?php echo $role; ?>/notifications.php">
                                 <i class="fas fa-bell"></i>
                                 <?php if ($notification_count > 0): ?>
                                     <span class="notification-badge"><?php echo $notification_count > 99 ? '99+' : $notification_count; ?></span>
@@ -601,7 +623,7 @@ if (isLoggedIn()) {
                         <small class="text-muted"><?php echo ucfirst($_SESSION['role_name'] ?? 'User'); ?></small>
                     </div>
                     <div class="list-group list-group-flush">
-                        <a href="<?php echo SITE_URL; ?>/dashboard/<?php echo $role; ?>/notifications.php" class="list-group-item list-group-item-action d-flex align-items-center position-relative">
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/<?php echo $role; ?>/notifications.php" class="list-group-item list-group-item-action d-flex align-items-center position-relative">
                             <i class="fas fa-bell text-primary me-3"></i>
                             <span>Notifications</span>
                             <?php if ($notification_count > 0): ?>
@@ -610,11 +632,11 @@ if (isLoggedIn()) {
                                 </span>
                             <?php endif; ?>
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/profile.php" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/profile" class="list-group-item list-group-item-action d-flex align-items-center">
                             <i class="fas fa-id-card text-primary me-3"></i>
                             <span>My Profile</span>
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/logout.php" class="list-group-item list-group-item-action d-flex align-items-center text-danger">
+                        <a href="<?php echo rtrim(SITE_URL, '/'); ?>/logout" class="list-group-item list-group-item-action d-flex align-items-center text-danger">
                             <i class="fas fa-sign-out-alt me-3"></i>
                             <span>Logout</span>
                         </a>
@@ -641,47 +663,47 @@ if (isLoggedIn()) {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'consultations') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/consultations.php">
+                        <a class="nav-link <?php echo ($current_page == 'consultations') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/consultations">
                             <i class="fas fa-clipboard-list"></i> <span>Consultations</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'users') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/users.php">
+                        <a class="nav-link <?php echo ($current_page == 'users') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/users">
                             <i class="fas fa-users"></i> <span>Users</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'reports') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/reports.php">
+                        <a class="nav-link <?php echo ($current_page == 'reports') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/reports">
                             <i class="fas fa-chart-bar"></i> <span>Reports</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'manage_consultations') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/manage_consultations.php">
+                        <a class="nav-link <?php echo ($current_page == 'manage_consultations') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/manage_consultations">
                             <i class="fas fa-cogs"></i> <span>Manage Consultations</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'settings') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/settings.php">
+                                                <a class="nav-link <?php echo ($current_page == 'settings') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/settings">
                             <i class="fas fa-cog"></i> <span>Settings</span>
-                                                </a>
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'send_notification') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/send_notification.php">
+                        <a class="nav-link <?php echo ($current_page == 'send_notification') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/send_notification">
                             <i class="fas fa-bell"></i> <span>Send Notifications</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'logs') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/logs.php">
+                        <a class="nav-link <?php echo ($current_page == 'logs') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/logs">
                             <i class="fas fa-history"></i> <span>Logs</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'backup') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/backup.php">
+                        <a class="nav-link <?php echo ($current_page == 'backup') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/backup">
                             <i class="fas fa-database"></i> <span>Backup</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'notifications') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/admin/notifications.php">
+                        <a class="nav-link <?php echo ($current_page == 'notifications') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/admin/notifications">
                             <i class="fas fa-bell"></i> <span>Notifications</span>
                         </a>
                     </li>
@@ -692,27 +714,27 @@ if (isLoggedIn()) {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'consultations') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/counselor/consultations.php">
+                        <a class="nav-link <?php echo ($current_page == 'consultations') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/consultations">
                             <i class="fas fa-clipboard-list"></i> <span>Consultations</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'schedule') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/counselor/schedule.php">
+                        <a class="nav-link <?php echo ($current_page == 'schedule') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/schedule">
                             <i class="fas fa-calendar-alt"></i> <span>Schedule</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'messages') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/counselor/messages.php">
+                        <a class="nav-link <?php echo ($current_page == 'messages') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/messages">
                             <i class="fas fa-comments"></i> <span>Messages</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'reports') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/counselor/reports.php">
+                        <a class="nav-link <?php echo ($current_page == 'reports') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/reports">
                             <i class="fas fa-chart-bar"></i> <span>Reports</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'notifications') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/counselor/notifications.php">
+                        <a class="nav-link <?php echo ($current_page == 'notifications') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/notifications">
                             <i class="fas fa-bell"></i> <span>Notifications</span>
                         </a>
                     </li>
@@ -723,23 +745,43 @@ if (isLoggedIn()) {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'consultations' || $current_page == 'my_consultations') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/student/consultations.php">
+                        <a class="nav-link <?php echo ($current_page == 'consultations' || $current_page == 'my_consultations') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/consultations">
                             <i class="fas fa-clipboard-list"></i> <span>My Consultations</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'request_consultation') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/student/request_consultation.php">
+                        <a class="nav-link <?php echo ($current_page == 'request_consultation') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/request_consultation">
                             <i class="fas fa-calendar-plus"></i> <span>Request Consultation</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'messages') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/student/messages.php">
+                        <a class="nav-link <?php echo ($current_page == 'messages') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/messages">
                             <i class="fas fa-comments"></i> <span>Messages</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo ($current_page == 'notifications') ? 'active' : ''; ?>" href="<?php echo SITE_URL; ?>/dashboard/student/notifications.php">
+                        <a class="nav-link <?php echo ($current_page == 'notifications') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/notifications">
                             <i class="fas fa-bell"></i> <span>Notifications</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo ($current_page == 'feedback') ? 'active' : ''; ?>" href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/student/consultations?status=completed">
+                            <i class="fas fa-star"></i> <span>Feedback</span>
+                            <?php
+                            // Show badge for pending feedback
+                            if (isLoggedIn()) {
+                                $user_id = $_SESSION['user_id'];
+                                $db = (new Database())->getConnection();
+                                $stmt = $db->prepare("SELECT COUNT(*) as count FROM consultation_requests cr 
+                                                     WHERE cr.student_id = ? AND cr.status = 'completed' 
+                                                     AND NOT EXISTS (SELECT 1 FROM feedback f WHERE f.consultation_id = cr.id AND f.student_id = cr.student_id)");
+                                $stmt->execute([$user_id]);
+                                $pending_feedback = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                                if ($pending_feedback > 0): ?>
+                                    <span class="badge bg-warning text-dark ms-2"><?php echo $pending_feedback; ?></span>
+                                <?php endif;
+                            }
+                            ?>
                         </a>
                     </li>
                 <?php endif; ?>

@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../includes/path_fix.php';
 
 // Required includes with absolute paths
 require_once $base_path . '/config/config.php';
+require_once $base_path . '/includes/utility.php';
+require_once $base_path . '/includes/auth.php';
 
 // Include required classes
 require_once $base_path . '/classes/Database.php';
@@ -34,39 +36,83 @@ $counselors = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Process form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $issue_description = sanitizeInput($_POST['issue_description']);
-    $issue_category = sanitizeInput($_POST['issue_category']);
-    $preferred_date = sanitizeInput($_POST['preferred_date']);
-    $preferred_time = sanitizeInput($_POST['preferred_time']);
-    $communication_method = sanitizeInput($_POST['communication_method']);
-    $is_anonymous = isset($_POST['is_anonymous']) ? 1 : 0;
-    $counselor_id = !empty($_POST['counselor_id']) ? (int)$_POST['counselor_id'] : null;
-    
-    // Validate input
-    if (empty($issue_description) || empty($preferred_date) || empty($preferred_time) || empty($communication_method)) {
-        setMessage('All required fields must be filled out.', 'danger');
-    } else {
-        // Create consultation request
-        $result = $consultation->createRequest(
-            $user_id,
-            $issue_description,
-            $preferred_date,
-            $preferred_time,
-            $communication_method,
-            $is_anonymous,
-            $issue_category,
-            $counselor_id
-        );
+    try {
+        // Use trim instead of sanitizeInput to avoid HTML entity encoding
+        $issue_description = trim($_POST['issue_description'] ?? '');
+        $issue_category = trim($_POST['issue_category'] ?? '');
+        $preferred_date = trim($_POST['preferred_date'] ?? '');
+        $preferred_time = trim($_POST['preferred_time'] ?? '');
+        $communication_method = trim($_POST['communication_method'] ?? '');
+        $is_anonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+        $counselor_id = !empty($_POST['counselor_id']) ? (int)$_POST['counselor_id'] : null;
         
-        if ($result) {
-            setMessage('Consultation request submitted successfully.', 'success');
-            
-            // Redirect to prevent form resubmission
-            redirect(SITE_URL . '/dashboard/student/consultations.php');
-            exit;
-        } else {
-            setMessage('Failed to submit consultation request.', 'danger');
+        // Enhanced validation
+        $errors = [];
+        
+        if (empty($issue_description)) {
+            $errors[] = 'Please describe your concern or issue.';
+        } elseif (strlen($issue_description) < 10) {
+            $errors[] = 'Issue description must be at least 10 characters long.';
         }
+        
+        if (empty($preferred_date)) {
+            $errors[] = 'Please select a preferred date.';
+        } else {
+            $selected_date = strtotime($preferred_date);
+            $today = strtotime(date('Y-m-d'));
+            if ($selected_date < $today) {
+                $errors[] = 'Preferred date cannot be in the past.';
+            }
+        }
+        
+        if (empty($preferred_time)) {
+            $errors[] = 'Please select a preferred time.';
+        }
+        
+        if (empty($communication_method)) {
+            $errors[] = 'Please select a communication method.';
+        }
+        
+        // Check if user exists and is active
+        $user_check = $db->prepare("SELECT user_id, is_active FROM users WHERE user_id = ?");
+        $user_check->execute([$user_id]);
+        $user_data = $user_check->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user_data || !$user_data['is_active']) {
+            $errors[] = 'User account is not active. Please contact support.';
+        }
+        
+        if (!empty($errors)) {
+            foreach ($errors as $error) {
+                setMessage($error, 'danger');
+            }
+        } else {
+            // Create consultation request
+            $result = $consultation->createRequest(
+                $user_id,
+                $issue_description,
+                $preferred_date,
+                $preferred_time,
+                $communication_method,
+                $is_anonymous,
+                $issue_category,
+                $counselor_id
+            );
+            
+            if ($result) {
+                setMessage('Consultation request submitted successfully! You will be notified when a counselor is assigned.', 'success');
+                
+                // Redirect to prevent form resubmission
+                redirect(SITE_URL . '/dashboard/student/consultations.php');
+                exit;
+            } else {
+                setMessage('Failed to submit consultation request. Please try again or contact support if the problem persists.', 'danger');
+            }
+        }
+        
+    } catch (Exception $e) {
+        error_log("Consultation request error: " . $e->getMessage());
+        setMessage('An unexpected error occurred. Please try again later.', 'danger');
     }
 }
 
@@ -166,7 +212,7 @@ include_once $base_path . '/includes/header.php';
                             <!-- Preferred Date -->
                             <div class="col-md-6 mb-4">
                                 <label for="preferred_date" class="form-label fw-medium">
-                                    <i class="fas fa-calendar text-primary me-2"></i>Preferred Date
+                                    <i class="fas fa-calendar text-primary me-2"></i> <-- Preferred Date
                                     <span class="text-danger">*</span>
                                 </label>
                                 <input type="date" 
@@ -174,10 +220,11 @@ include_once $base_path . '/includes/header.php';
                                        id="preferred_date" 
                                        name="preferred_date" 
                                        required
-                                       disabled>
-                                <div class="form-text text-muted">
+                                       disabled
+                                       placeholder="Select counselor first">
+                                <div class="form-text text-muted" id="date-help">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    Select a counselor first to see available dates
+                                    Please select a counselor first to see available dates
                                 </div>
                             </div>
 
@@ -275,22 +322,34 @@ include_once $base_path . '/includes/header.php';
                     </div>
                     <h5 class="card-title">Need Help?</h5>
                     <p class="card-text text-muted">
-                        If you have any questions about the consultation process or need immediate assistance, 
-                        please contact our support team.
+                        If you have any questions about the consultation process, need technical assistance, 
+                        or have issues with the system, please contact the developer directly.
                     </p>
                     <div class="row text-center">
-                        <div class="col-md-4">
-                            <i class="fas fa-phone text-primary mb-2"></i>
-                            <p class="small mb-0"><strong>Phone</strong><br>(555) 123-4567</p>
+                        <div class="col-md-6">
+                            <i class="fab fa-facebook text-primary mb-2" style="font-size: 1.5rem;"></i>
+                            <p class="small mb-0">
+                                <strong>Facebook</strong><br>
+                                <a href="https://www.facebook.com/Keithtordaofficial1/" target="_blank" class="text-decoration-none">
+                                    Keith Torda
+                                </a>
+                            </p>
                         </div>
-                        <div class="col-md-4">
-                            <i class="fas fa-envelope text-primary mb-2"></i>
-                            <p class="small mb-0"><strong>Email</strong><br>support@egabay.edu</p>
+                        <div class="col-md-6">
+                            <i class="fas fa-envelope text-primary mb-2" style="font-size: 1.5rem;"></i>
+                            <p class="small mb-0">
+                                <strong>Email</strong><br>
+                                <a href="mailto:keithorario@gmail.com" class="text-decoration-none">
+                                    keithorario@gmail.com
+                                </a>
+                            </p>
                         </div>
-                        <div class="col-md-4">
-                            <i class="fas fa-clock text-primary mb-2"></i>
-                            <p class="small mb-0"><strong>Hours</strong><br>Mon-Fri 8AM-5PM</p>
-                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            For immediate system support, consultation help, or technical issues
+                        </small>
                     </div>
                 </div>
             </div>
@@ -333,23 +392,53 @@ include_once $base_path . '/includes/header.php';
 .needs-validation .form-control:valid {
     border-color: #28a745;
 }
+
+/* Disabled field styling for better UX */
+.form-control:disabled, .form-select:disabled {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #6c757d;
+    opacity: 0.8;
+}
+
+.form-control:disabled::placeholder {
+    color: #adb5bd;
+    font-style: italic;
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+    .form-control-lg, .form-select-lg {
+        font-size: 1rem;
+        padding: 0.75rem;
+    }
+    
+    .form-text {
+        font-size: 0.8rem;
+    }
+}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Set minimum date for preferred date input to today
     const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('preferred_date');
+    let dateInput = document.getElementById('preferred_date');
     const timeSelect = document.getElementById('preferred_time');
     const counselorSelect = document.getElementById('counselor_id');
+    const siteUrl = '<?php echo rtrim(SITE_URL, '/'); ?>';
     
     dateInput.setAttribute('min', today);
+    
+    // Initialize form state
+    console.log('Form initialized');
+    console.log('Counselor select:', counselorSelect);
+    console.log('Date input:', dateInput);
+    console.log('Time select:', timeSelect);
     
     // Handle counselor selection change
     counselorSelect.addEventListener('change', function() {
         const counselorId = this.value;
-        const dateInput = document.getElementById('preferred_date');
-        const timeSelect = document.getElementById('preferred_time');
         
         if (counselorId) {
             // Enable date input and get counselor availability
@@ -359,23 +448,42 @@ document.addEventListener('DOMContentLoaded', function() {
             timeSelect.innerHTML = '<option value="">Select a date first</option>';
             
             // Update date input help text
-            const dateHelp = dateInput.nextElementSibling;
+            const dateHelp = document.getElementById('date-help') || dateInput.nextElementSibling;
             dateHelp.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Loading available dates...';
             
             // Fetch counselor availability
-            fetch(`<?php echo SITE_URL; ?>/api/get_counselor_availability.php?counselor_id=${counselorId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Set up date restrictions based on counselor availability
-                        setupDateRestrictions(data.available_days);
-                        dateHelp.innerHTML = '<i class="fas fa-info-circle me-1"></i>Select from available dates based on counselor schedule';
-                    } else {
-                        dateHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error loading availability: ' + data.error;
+            const apiUrl = `${siteUrl}/api/get_counselor_availability_simple.php?counselor_id=${counselorId}`;
+            console.log('Fetching counselor availability from:', apiUrl);
+            
+            fetch(apiUrl)
+                .then(response => {
+                    console.log('API Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    console.log('Raw API response:', text);
+                    try {
+                        const data = JSON.parse(text);
+                        console.log('Parsed data:', data);
+                        
+                        if (data.success) {
+                            // Set up date restrictions based on counselor availability
+                            setupDateRestrictions(data.available_days);
+                            dateHelp.innerHTML = '<i class="fas fa-info-circle me-1"></i>Select from available dates based on counselor schedule';
+                        } else {
+                            console.error('API returned error:', data.error);
+                            dateHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error loading availability: ' + (data.error || 'Unknown error');
+                        }
+                    } catch (e) {
+                        console.error('JSON parse error:', e, 'Raw text:', text);
+                        dateHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Invalid response from server';
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Fetch error:', error);
                     dateHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error loading counselor availability';
                 });
         } else {
@@ -385,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
             timeSelect.disabled = true;
             timeSelect.innerHTML = '<option value="">Select a date first</option>';
             
-            const dateHelp = dateInput.nextElementSibling;
+            const dateHelp = document.getElementById('date-help') || dateInput.nextElementSibling;
             dateHelp.innerHTML = '<i class="fas fa-info-circle me-1"></i>Select any date - we will find an available counselor for you';
             
             // Clear any previous date restrictions
@@ -399,60 +507,101 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedDate = this.value;
         const counselorId = counselorSelect.value;
         
+        console.log('Date changed:', selectedDate, 'Counselor:', counselorId);
+        
         if (selectedDate) {
             if (counselorId) {
                 // Specific counselor selected
+                console.log('Loading time slots for counselor', counselorId, 'on date', selectedDate);
                 timeSelect.disabled = false;
                 timeSelect.innerHTML = '<option value="">Loading available times...</option>';
                 
-                fetch(`<?php echo SITE_URL; ?>/api/get_counselor_availability.php?counselor_id=${counselorId}&date=${selectedDate}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            timeSelect.innerHTML = '<option value="">Select a time</option>';
+                const timeApiUrl = `${siteUrl}/api/get_counselor_availability_simple.php?counselor_id=${counselorId}&date=${selectedDate}`;
+                console.log('Fetching time slots from:', timeApiUrl);
+                
+                fetch(timeApiUrl)
+                    .then(response => {
+                        console.log('Time API Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(text => {
+                        console.log('Raw time API response:', text);
+                        try {
+                            const data = JSON.parse(text);
+                            console.log('Parsed time data:', data);
                             
-                            if (data.time_slots && data.time_slots.length > 0) {
-                                data.time_slots.forEach(slot => {
-                                    const option = document.createElement('option');
-                                    option.value = slot.value;
-                                    option.textContent = slot.label;
-                                    timeSelect.appendChild(option);
-                                });
+                            if (data.success) {
+                                timeSelect.innerHTML = '<option value="">Select a time</option>';
+                                timeSelect.disabled = false; // Make sure it's enabled
                                 
-                                const timeHelp = timeSelect.nextElementSibling;
-                                timeHelp.innerHTML = `<i class="fas fa-info-circle me-1"></i>${data.time_slots.length} available time slots`;
+                                if (data.time_slots && data.time_slots.length > 0) {
+                                    console.log('Found time slots:', data.time_slots.length);
+                                    data.time_slots.forEach(slot => {
+                                        const option = document.createElement('option');
+                                        option.value = slot.value;
+                                        option.textContent = slot.label;
+                                        timeSelect.appendChild(option);
+                                    });
+                                    
+                                    console.log('Time select populated with', timeSelect.options.length - 1, 'time slots');
+                                    console.log('Time select disabled?', timeSelect.disabled);
+                                    
+                                    const timeHelp = timeSelect.nextElementSibling;
+                                    if (timeHelp) {
+                                        timeHelp.innerHTML = `<i class="fas fa-info-circle me-1"></i>${data.time_slots.length} available time slots`;
+                                    }
+                                } else {
+                                    console.log('No time slots found:', data);
+                                    timeSelect.innerHTML = '<option value="">No available times</option>';
+                                    timeSelect.disabled = true;
+                                    const timeHelp = timeSelect.nextElementSibling;
+                                    if (timeHelp) {
+                                        timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + (data.message || 'No available times for this date');
+                                    }
+                                }
                             } else {
-                                timeSelect.innerHTML = '<option value="">No available times</option>';
+                                console.error('Time API returned error:', data.error);
+                                timeSelect.innerHTML = '<option value="">Error loading times</option>';
+                                timeSelect.disabled = true;
                                 const timeHelp = timeSelect.nextElementSibling;
-                                timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + (data.message || 'No available times for this date');
+                                if (timeHelp) {
+                                    timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error: ' + (data.error || 'Unknown error');
+                                }
                             }
-                        } else {
-                            timeSelect.innerHTML = '<option value="">Error loading times</option>';
+                        } catch (e) {
+                            console.error('Time JSON parse error:', e, 'Raw text:', text);
+                            timeSelect.innerHTML = '<option value="">Invalid response</option>';
+                            timeSelect.disabled = true;
                             const timeHelp = timeSelect.nextElementSibling;
-                            timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error: ' + data.error;
+                            if (timeHelp) {
+                                timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Invalid response from server';
+                            }
                         }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
+                        console.error('Time fetch error:', error);
                         timeSelect.innerHTML = '<option value="">Error loading times</option>';
+                        timeSelect.disabled = true;
                         const timeHelp = timeSelect.nextElementSibling;
-                        timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error loading available times';
+                        if (timeHelp) {
+                            timeHelp.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error loading available times';
+                        }
                     });
             } else {
                 // "Any available counselor" selected - show standard business hours
                 timeSelect.disabled = false;
                 timeSelect.innerHTML = '<option value="">Select a time</option>';
                 
-                // Standard business hours
+                // Standard business hours (matching typical counselor availability)
                 const standardTimes = [
                     {value: '08:00', label: '8:00 AM'},
                     {value: '09:00', label: '9:00 AM'},
                     {value: '10:00', label: '10:00 AM'},
                     {value: '11:00', label: '11:00 AM'},
-                    {value: '13:00', label: '1:00 PM'},
-                    {value: '14:00', label: '2:00 PM'},
-                    {value: '15:00', label: '3:00 PM'},
-                    {value: '16:00', label: '4:00 PM'}
+                    {value: '12:00', label: '12:00 PM'}
                 ];
                 
                 standardTimes.forEach(slot => {
@@ -473,9 +622,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to set up date restrictions based on counselor availability
     function setupDateRestrictions(availableDays) {
+        // Clear any previous validation
+        dateInput.setCustomValidity('');
+        
+        // Remove any existing validation listener by removing the attribute
+        dateInput.removeAttribute('data-validation-added');
+        
         if (!availableDays || availableDays.length === 0) {
+            console.log('No available days provided, allowing all dates');
             return;
         }
+        
+        console.log('Setting up date restrictions for:', availableDays);
         
         // Convert available days to day numbers (0 = Sunday, 1 = Monday, etc.)
         const availableDayNumbers = availableDays.map(day => {
@@ -483,20 +641,55 @@ document.addEventListener('DOMContentLoaded', function() {
                 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
                 'thursday': 4, 'friday': 5, 'saturday': 6
             };
-            return dayMap[day.day.toLowerCase()];
-        });
+            const dayName = day.day ? day.day.toLowerCase() : day.toLowerCase();
+            return dayMap[dayName];
+        }).filter(num => num !== undefined);
         
-        // Add custom validation to prevent selection of unavailable days
-        dateInput.addEventListener('input', function() {
-            const selectedDate = new Date(this.value);
-            const dayOfWeek = selectedDate.getDay();
+        console.log('Available day numbers:', availableDayNumbers);
+        
+        // Add validation function without destroying the element
+        if (!dateInput.hasAttribute('data-validation-added')) {
+            dateInput.setAttribute('data-validation-added', 'true');
             
-            if (!availableDayNumbers.includes(dayOfWeek)) {
-                this.setCustomValidity('Counselor is not available on this day. Please select another date.');
-            } else {
-                this.setCustomValidity('');
-            }
-        });
+            // Store validation function globally so we can reference it
+            window.currentDateValidation = function(inputElement) {
+                const selectedDate = new Date(inputElement.value);
+                const dayOfWeek = selectedDate.getDay();
+                
+                console.log('Date selected:', inputElement.value, 'Day of week:', dayOfWeek);
+                
+                if (availableDayNumbers.length > 0 && !availableDayNumbers.includes(dayOfWeek)) {
+                    inputElement.setCustomValidity('Counselor is not available on this day. Please select another date.');
+                    console.log('Date validation failed');
+                } else {
+                    inputElement.setCustomValidity('');
+                    console.log('Date validation passed');
+                }
+            };
+            
+            // Add input event listener for validation
+            dateInput.addEventListener('input', function() {
+                if (window.currentDateValidation) {
+                    window.currentDateValidation(this);
+                }
+            });
+        } else {
+            // Update the existing validation function
+            window.currentDateValidation = function(inputElement) {
+                const selectedDate = new Date(inputElement.value);
+                const dayOfWeek = selectedDate.getDay();
+                
+                console.log('Date selected:', inputElement.value, 'Day of week:', dayOfWeek);
+                
+                if (availableDayNumbers.length > 0 && !availableDayNumbers.includes(dayOfWeek)) {
+                    inputElement.setCustomValidity('Counselor is not available on this day. Please select another date.');
+                    console.log('Date validation failed');
+                } else {
+                    inputElement.setCustomValidity('');
+                    console.log('Date validation passed');
+                }
+            };
+        }
     }
     
     // Form validation

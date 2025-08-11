@@ -15,7 +15,7 @@ if (isLoggedIn()) {
 $allow_reg = (int)Utility::getSetting('allow_registrations', 1);
 if ($allow_reg === 0) {
     setMessage('Registrations are currently disabled. Please contact the administrator.', 'warning');
-    header('Location: login.php');
+    header('Location: login');
     exit;
 }
 
@@ -74,26 +74,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$ip]);
     }
     
-    $first  = sanitizeInput($_POST['first_name']);
-    $last   = sanitizeInput($_POST['last_name']);
-    $user   = sanitizeInput($_POST['username']);
-    $email  = sanitizeInput($_POST['email']);
+    $first  = trim($_POST['first_name']);
+    $last   = trim($_POST['last_name']);
+    $user   = trim($_POST['username']);
+    $email  = trim($_POST['email']);
     $pass   = $_POST['password'];
     $pass2  = $_POST['confirm_password'];
 
-    if (!$first || !$last || !$user || !$email || !$pass || !$pass2) {
+    if (empty($first) || empty($last) || empty($user) || empty($email) || empty($pass) || empty($pass2)) {
         $errors[] = 'All fields are required.';
     }
     
-    // Enhanced validation
-    if (strlen($first) < 2 || strlen($last) < 2) {
-        $errors[] = 'First and last name must be at least 2 characters long.';
+    // Enhanced validation with better error messages
+    if (!empty($first) && strlen($first) < 2) {
+        $errors[] = 'First name must be at least 2 characters long.';
     }
-    if (strlen($user) < 3 || strlen($user) > 20) {
-        $errors[] = 'Username must be between 3 and 20 characters.';
+    if (!empty($last) && strlen($last) < 2) {
+        $errors[] = 'Last name must be at least 2 characters long.';
     }
-    if (!preg_match('/^[a-zA-Z0-9._-]+$/', $user)) {
-        $errors[] = 'Username can only contain letters, numbers, dots, hyphens, and underscores.';
+    if (!empty($user)) {
+        if (strlen($user) < 3) {
+            $errors[] = 'Username must be at least 3 characters long.';
+        } elseif (strlen($user) > 20) {
+            $errors[] = 'Username must be no more than 20 characters long.';
+        } elseif (!preg_match('/^[a-zA-Z0-9._-]+$/', $user)) {
+            $errors[] = 'Username can only contain letters, numbers, dots (.), hyphens (-), and underscores (_). No spaces or special characters allowed.';
+        }
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please enter a valid email address.';
@@ -122,6 +128,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hash  = password_hash($pass, PASSWORD_BCRYPT);
             $roleId = ROLE_STUDENT; // 1
             
+            // Sanitize data before database insertion
+            $first = htmlspecialchars($first, ENT_QUOTES, 'UTF-8');
+            $last = htmlspecialchars($last, ENT_QUOTES, 'UTF-8');
+            $email = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+            
             // Direct INSERT with proper error handling for duplicates
             $query = 'INSERT INTO users (first_name,last_name,username,email,password,role_id,is_verified,verification_token,is_active)
                       VALUES (?,?,?,?,?,?,0,?,1)';
@@ -145,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 setMessage('Registration successful! Please check your e-mail to verify your account.','success');
-                redirect('login.php');
+                redirect('login');
                 exit;
                 
             } else {
@@ -153,14 +164,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errorInfo = $stmt->errorInfo();
                 if ($errorInfo[1] == 1062) { // MySQL duplicate entry error
                     if (strpos($errorInfo[2], 'username') !== false) {
-                        $errors[] = 'Username already exists. Please choose a different username.';
+                        $errors[] = 'The username "' . htmlspecialchars($user) . '" is already taken. Please choose a different username.';
                     } elseif (strpos($errorInfo[2], 'email') !== false) {
-                        $errors[] = 'Email address already exists. Please use a different email address.';
+                        $errors[] = 'The email address "' . htmlspecialchars($email) . '" is already registered. Please use a different email address.';
                     } else {
-                        $errors[] = 'Username or email already exists.';
+                        $errors[] = 'Username or email already exists. Please try different values.';
                     }
                 } else {
-                    $errors[] = 'Registration failed. Please try again.';
+                    $errors[] = 'Registration failed. Error: ' . $errorInfo[2] . ' Please try again.';
                 }
                 $db->rollback();
             }
@@ -171,15 +182,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle specific database errors
             if ($e->getCode() == 23000) { // Integrity constraint violation
                 if (strpos($e->getMessage(), 'username') !== false) {
-                    $errors[] = 'Username already exists. Please choose a different username.';
+                    $errors[] = 'The username "' . htmlspecialchars($user) . '" is already taken. Please choose a different username.';
                 } elseif (strpos($e->getMessage(), 'email') !== false) {
-                    $errors[] = 'Email address already exists. Please use a different email address.';
+                    $errors[] = 'The email address "' . htmlspecialchars($email) . '" is already registered. Please use a different email address.';
                 } else {
-                    $errors[] = 'Username or email already exists.';
+                    $errors[] = 'Username or email already exists. Please try different values.';
                 }
             } else {
                 error_log("Registration database error: " . $e->getMessage());
-                $errors[] = 'Database error. Please try again later.';
+                $errors[] = 'Database connection error. Please check if your database is running and try again.';
             }
         }
     }
@@ -365,7 +376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button class="btn btn-primary w-100" type="submit">Create Account</button>
             </form>
             <div class="text-center mt-3">
-                <a href="login.php">Already have an account? Log in</a>
+                                    <a href="login">Already have an account? Log in</a>
             </div>
         </div>
     </div>
@@ -631,18 +642,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Username validation
+    // Username validation with real-time feedback
     const usernameField = document.querySelector('input[name="username"]');
+    const usernameHelp = document.createElement('div');
+    usernameHelp.className = 'form-text';
+    usernameHelp.id = 'usernameHelp';
+    usernameField.parentNode.appendChild(usernameHelp);
+    
     usernameField.addEventListener('input', function() {
         const username = this.value;
         const regex = /^[a-zA-Z0-9._-]+$/;
+        let message = '';
+        let isValid = true;
         
-        if (username.length > 0 && !regex.test(username)) {
-            this.setCustomValidity('Username can only contain letters, numbers, dots, hyphens, and underscores.');
-        } else if (username.length > 0 && (username.length < 3 || username.length > 20)) {
-            this.setCustomValidity('Username must be between 3 and 20 characters.');
+        if (username.length === 0) {
+            message = '';
+        } else if (username.length < 3) {
+            message = '<span class="text-danger">Username too short (minimum 3 characters)</span>';
+            isValid = false;
+        } else if (username.length > 20) {
+            message = '<span class="text-danger">Username too long (maximum 20 characters)</span>';
+            isValid = false;
+        } else if (!regex.test(username)) {
+            message = '<span class="text-danger">Invalid characters! Only letters, numbers, dots (.), hyphens (-), and underscores (_) allowed</span>';
+            isValid = false;
         } else {
+            message = '<span class="text-success">Username looks good!</span>';
+        }
+        
+        usernameHelp.innerHTML = message;
+        
+        if (isValid || username.length === 0) {
             this.setCustomValidity('');
+        } else if (username.length < 3 || username.length > 20) {
+            this.setCustomValidity('Username must be between 3 and 20 characters.');
+        } else if (!regex.test(username)) {
+            this.setCustomValidity('Username can only contain letters, numbers, dots (.), hyphens (-), and underscores (_).');
         }
     });
     

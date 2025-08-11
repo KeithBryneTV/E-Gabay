@@ -22,10 +22,16 @@ $role = getUserRole();
 // Mark notification as read if requested
 if (isset($_GET['mark_read']) && isset($_GET['id'])) {
     $notification_id = $_GET['id'];
-    markSystemNotificationsAsRead($user_id, $notification_id);
+    if (strpos($notification_id, 'msg_') === 0 || strpos($notification_id, 'cons_') === 0) {
+        // For message or consultation notifications, just mark the source as read
+        clearNotification($user_id, $notification_id);
+    } else {
+        // System notification
+        markSystemNotificationsAsRead($user_id, $notification_id);
+    }
     
     // Redirect back to notifications page
-    header("Location: " . SITE_URL . "/dashboard/counselor/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/counselor/notifications.php");
     exit;
 }
 
@@ -33,23 +39,27 @@ if (isset($_GET['mark_read']) && isset($_GET['id'])) {
 if (isset($_GET['clear']) && isset($_GET['id'])) {
     $notification_id = $_GET['id'];
     clearNotification($user_id, $notification_id);
-    header("Location: " . SITE_URL . "/dashboard/counselor/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/counselor/notifications.php");
     exit;
 }
 
 // Mark all as read if requested
 if (isset($_GET['mark_all_read'])) {
+    // Mark both system and message notifications as read
     markSystemNotificationsAsRead($user_id);
+    markAllMessagesAsRead($user_id);
     
     // Redirect back to notifications page
-    header("Location: " . SITE_URL . "/dashboard/counselor/notifications.php");
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/counselor/notifications.php");
     exit;
 }
 
 // Clear all notifications if requested
 if (isset($_GET['clear_all'])) {
+    // Clear system notifications and mark all messages as read (which effectively clears message notifs)
     clearSystemNotifications($user_id);
-    header("Location: " . SITE_URL . "/dashboard/counselor/notifications.php");
+    markAllMessagesAsRead($user_id);
+    header("Location: " . rtrim(SITE_URL, '/') . "/dashboard/counselor/notifications.php");
     exit;
 }
 
@@ -176,14 +186,14 @@ include_once $base_path . '/includes/header.php';
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <?php if (!$is_read): ?>
-                                                <a href="<?php echo SITE_URL; ?>/dashboard/counselor/notifications.php?mark_read=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-primary" title="Mark as Read">
+                                                <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/notifications.php?mark_read=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-primary" title="Mark as Read">
                                                     <i class="fas fa-check"></i>
                                                 </a>
                                                 <?php endif; ?>
-                                                <a href="<?php echo SITE_URL; ?>/dashboard/counselor/notifications.php?clear=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-danger" title="Clear">
+                                                <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/notifications.php?clear=1&id=<?php echo $notification_id; ?>" class="btn btn-outline-danger" title="Clear">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
-                                                <a href="<?php echo ($link && $link != '#') ? $link : SITE_URL . '/dashboard/view_notification.php?id=' . $notification_id; ?>" class="btn btn-primary" title="View">
+                                                <a href="<?php echo ($link && $link != '#') ? $link : rtrim(SITE_URL, '/') . '/dashboard/view_notification.php?id=' . $notification_id; ?>" class="btn btn-primary" title="View">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                             </div>

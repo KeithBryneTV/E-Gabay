@@ -1,4 +1,7 @@
 <?php
+// Force timezone to Asia/Manila to prevent timezone issues
+date_default_timezone_set('Asia/Manila');
+
 // Include path fix helper
 if (!defined('BASE_PATH_DEFINED')) {
     require_once __DIR__ . '/../includes/path_fix.php';
@@ -26,11 +29,15 @@ if (!defined('SITE_URL')) {
     $base_path = rtrim($base_path, '/');
     
     // Handle root directory case
-    if ($base_path === '' || $base_path === '.') {
+    if ($base_path === '' || $base_path === '.' || $base_path === '/') {
         $base_path = '';
     }
     
-    define('SITE_URL', $protocol . "://" . $host . $base_path);
+    // Ensure no double slashes in final URL
+    $site_url = $protocol . "://" . $host . $base_path;
+    $site_url = rtrim($site_url, '/'); // Remove trailing slash
+    
+    define('SITE_URL', $site_url);
 }
 
 // Define roles

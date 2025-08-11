@@ -23,7 +23,7 @@ $auth = new Auth($db);
 // Redirect if already logged in
 if (isLoggedIn()) {
     $userRole = strtolower($_SESSION['role_name'] ?? 'student');
-    redirect(SITE_URL . '/dashboard/' . $userRole . '/index.php');
+            redirect(rtrim(SITE_URL, '/') . '/dashboard/' . $userRole);
     exit();
 }
 
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Redirect based on role with cache busting
-            $redirectUrl = SITE_URL . '/dashboard/' . strtolower($_SESSION['role_name']) . '/index.php?t=' . time();
+                            $redirectUrl = rtrim(SITE_URL, '/') . '/dashboard/' . strtolower($_SESSION['role_name']) . '?t=' . time();
             header("Location: " . $redirectUrl);
             exit();
         }
@@ -111,7 +111,7 @@ if (isset($_SESSION['user_id'])) {
         }
         
         // Redirect immediately after login
-        window.location.replace("' . SITE_URL . '/dashboard/' . strtolower($_SESSION['role_name']) . '/index.php");
+                                window.location.replace("' . rtrim(SITE_URL, '/') . '/dashboard/' . strtolower($_SESSION['role_name'] ?? 'student') . '");
     </script>';
     exit();
 }

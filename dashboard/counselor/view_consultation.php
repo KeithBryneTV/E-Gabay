@@ -4,12 +4,14 @@ require_once __DIR__ . '/../../includes/path_fix.php';
 
 // Required includes with absolute paths
 require_once $base_path . '/config/config.php';
+require_once $base_path . '/includes/auth.php';
 
 // Include required classes
 require_once $base_path . '/classes/Database.php';
 require_once $base_path . '/classes/Auth.php';
 require_once $base_path . '/classes/Consultation.php';
 require_once $base_path . '/classes/Chat.php';
+require_once $base_path . '/includes/utility.php';
 // Include counselor availability helper
 require_once $base_path . '/includes/counselor_availability_helper.php';
 
@@ -31,8 +33,8 @@ $consultation = new Consultation($db);
 
 // Check if consultation ID is provided
 if (!isset($_GET['id']) || empty($_GET['id'])) {
-    setMessage('Invalid consultation ID.', 'danger');
-    redirect(SITE_URL . '/dashboard/counselor/consultations.php');
+    setMessage('Invalid consultation ID. Please select a consultation from the list.', 'danger');
+    header('Location: ' . SITE_URL . '/dashboard/counselor/consultations.php');
     exit;
 }
 
@@ -52,7 +54,7 @@ $consultation_data = $stmt->fetch(PDO::FETCH_ASSOC);
 // Check if consultation exists and belongs to the counselor
 if (!$consultation_data) {
     setMessage('Consultation not found or you do not have permission to view it.', 'danger');
-    redirect(SITE_URL . '/dashboard/counselor/consultations.php');
+    header('Location: ' . SITE_URL . '/dashboard/counselor/consultations.php');
     exit;
 }
 
@@ -120,8 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($consultation->updateStatus($consultation_id, $status, $user_id, $notes)) {
                     setMessage('Consultation status updated successfully.', 'success');
                     
-                    // Redirect to avoid form resubmission
-                    redirect(SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
+                    // Redirect using full URL to avoid form resubmission
+                    header('Location: ' . SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
                     exit;
                 } else {
                     setMessage('Failed to update consultation status.', 'danger');
@@ -133,9 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $scheduled_time = $_POST['scheduled_time'];
                 $notes = sanitizeInput($_POST['notes'] ?? '');
                 
-                // Update consultation with scheduled date and time
+                // Update consultation with scheduled date and time (separate from student's preferred)
                 $query = "UPDATE consultation_requests 
-                          SET preferred_date = ?, preferred_time = ?, counselor_notes = ? 
+                          SET scheduled_date = ?, scheduled_time = ?, counselor_notes = ? 
                           WHERE id = ? AND counselor_id = ?";
                 $stmt = $db->prepare($query);
                 
@@ -143,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setMessage('Consultation scheduled successfully.', 'success');
                     
                     // Redirect to avoid form resubmission
-                    redirect(SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
+                    redirect(rtrim(SITE_URL, '/') . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
                     exit;
                 } else {
                     setMessage('Failed to schedule consultation.', 'danger');
@@ -161,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setMessage('Notes updated successfully.', 'success');
                     
                     // Redirect to avoid form resubmission
-                    redirect(SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
+                    header('Location: ' . SITE_URL . '/dashboard/counselor/view_consultation.php?id=' . $consultation_id);
                     exit;
                 } else {
                     setMessage('Failed to update notes.', 'danger');
@@ -180,8 +182,8 @@ include_once $base_path . '/includes/header.php';
 <div class="row mb-4">
         <div class="col-md-6">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="<?php echo SITE_URL; ?>/dashboard/counselor/">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="<?php echo SITE_URL; ?>/dashboard/counselor/consultations.php">Consultations</a></li>
+                <li class="breadcrumb-item"><a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/consultations.php">Consultations</a></li>
                 <li class="breadcrumb-item active">Consultation #<?php echo $consultation_data['id']; ?></li>
             </ol>
             <h1 class="mt-2">
@@ -191,7 +193,7 @@ include_once $base_path . '/includes/header.php';
             <p class="lead text-muted">View and manage consultation information</p>
     </div>
         <div class="col-md-6 text-md-end d-flex justify-content-md-end align-items-center mt-3 mt-md-0">
-            <a href="<?php echo SITE_URL; ?>/dashboard/counselor/consultations.php" class="btn btn-outline-secondary me-2">
+            <a href="<?php echo rtrim(SITE_URL, '/'); ?>/dashboard/counselor/consultations.php" class="btn btn-outline-secondary me-2">
                 <i class="fas fa-arrow-left me-2"></i>Back
             </a>
             
@@ -258,14 +260,27 @@ include_once $base_path . '/includes/header.php';
                                 <h6 class="fw-bold text-primary mb-2"><i class="fas fa-calendar me-2"></i>Schedule</h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <p class="mb-1 text-muted small">Preferred Date</p>
+                                        <p class="mb-1 text-muted small">Student's Preferred Date</p>
                                         <p class="fw-bold"><?php echo formatDate($consultation_data['preferred_date']); ?></p>
                                     </div>
                                     <div class="col-md-6">
-                                        <p class="mb-1 text-muted small">Preferred Time</p>
+                                        <p class="mb-1 text-muted small">Student's Preferred Time</p>
                                         <p class="fw-bold"><?php echo formatTime($consultation_data['preferred_time']); ?></p>
                                     </div>
                                 </div>
+                                
+                                <?php if (!empty($consultation_data['scheduled_date']) && !empty($consultation_data['scheduled_time'])): ?>
+                                <div class="row mt-2 pt-2 border-top">
+                                    <div class="col-md-6">
+                                        <p class="mb-1 text-muted small">Scheduled Date</p>
+                                        <p class="fw-bold text-success"><?php echo formatDate($consultation_data['scheduled_date']); ?></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1 text-muted small">Scheduled Time</p>
+                                        <p class="fw-bold text-success"><?php echo formatTime($consultation_data['scheduled_time']); ?></p>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
                                 <div class="row mt-2">
                                     <div class="col-12">
                                         <p class="mb-1 text-muted small">Communication Method</p>
@@ -561,7 +576,7 @@ include_once $base_path . '/includes/header.php';
                     </h5>
             </div>
             <div class="card-body">
-                    <form action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>" method="post">
+                    <form action="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
                         <input type="hidden" name="action" value="update_status">
                         
                     <div class="mb-3">
@@ -587,25 +602,7 @@ include_once $base_path . '/includes/header.php';
                     </form>
                 </div>
             </div>
-            
-            <!-- Quick Actions -->
-            <div class="card shadow-sm mb-4 border-0">
-                <div class="card-header bg-white py-3">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-bolt me-2 text-primary"></i>
-                        Quick Actions
-                    </h5>
-                    </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <?php if ($consultation_data['status'] === 'live'): ?>
-                            <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#completeModal">
-                                <i class="fas fa-check me-2"></i> Mark as Completed
-                            </button>
-                        <?php endif; ?>
-                    </div>
-                    </div>
-            </div>
+
         </div>
     </div>
 </div>
@@ -620,7 +617,7 @@ include_once $base_path . '/includes/header.php';
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>" method="post">
+            <form action="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
                 <input type="hidden" name="action" value="update_status">
                 
                 <div class="modal-body">
@@ -660,7 +657,7 @@ include_once $base_path . '/includes/header.php';
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>" method="post">
+            <form action="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
                 <input type="hidden" name="action" value="start_chat">
                 
                 <div class="modal-body">
@@ -695,7 +692,7 @@ include_once $base_path . '/includes/header.php';
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>" method="post">
+            <form action="<?php echo SITE_URL; ?>/dashboard/counselor/view_consultation.php?id=<?php echo $consultation_id; ?>" method="post">
                 <input type="hidden" name="action" value="schedule_consultation">
                 
                 <div class="modal-body">
@@ -703,12 +700,12 @@ include_once $base_path . '/includes/header.php';
                         <div class="col-md-6 mb-3">
                             <label for="scheduled_date" class="form-label">Date</label>
                             <input type="date" class="form-control" id="scheduled_date" name="scheduled_date" required 
-                                   value="<?php echo $consultation_data['scheduled_date'] ?? ''; ?>">
+                                   value="<?php echo $consultation_data['scheduled_date'] ?? $consultation_data['preferred_date']; ?>">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="scheduled_time" class="form-label">Time</label>
                             <input type="time" class="form-control" id="scheduled_time" name="scheduled_time" required
-                                   value="<?php echo $consultation_data['scheduled_time'] ?? ''; ?>">
+                                   value="<?php echo $consultation_data['scheduled_time'] ?? $consultation_data['preferred_time']; ?>">
                         </div>
                     </div>
                     
